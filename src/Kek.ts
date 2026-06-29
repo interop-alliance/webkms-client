@@ -1,13 +1,20 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
-import {KmsClient} from './KmsClient.js';
+import { KmsClient } from './KmsClient.js'
 
 const JOSE_ALGORITHM_MAP = {
   AesKeyWrappingKey2019: 'A256KW'
-};
+}
 
 export class Kek {
+  id?: string
+  type?: string
+  algorithm?: string
+  invocationSigner: any
+  kmsClient: KmsClient
+  capability: any
+
   /**
    * Creates a new instance of a key encryption key.
    * Used to protect the content encryption key.
@@ -24,23 +31,33 @@ export class Kek {
    * @returns {Kek} The new Kek instance.
    */
   constructor({
-    id, type, capability, invocationSigner,
+    id,
+    type,
+    capability,
+    invocationSigner,
     kmsClient = new KmsClient()
+  }: {
+    id?: string
+    type?: string
+    capability?: any
+    invocationSigner?: any
+    kmsClient?: KmsClient
   }) {
-    if(capability) {
+    if (capability) {
       throw new Error(
         '"capability" parameter not allowed in constructor; ' +
-        'use ".fromCapability" instead.');
+          'use ".fromCapability" instead.'
+      )
     }
-    this.id = id;
-    this.type = type;
-    this.algorithm = JOSE_ALGORITHM_MAP[type];
-    if(!this.algorithm) {
-      throw new Error(`Unknown key type "${this.type}".`);
+    this.id = id
+    this.type = type
+    this.algorithm = JOSE_ALGORITHM_MAP[type as keyof typeof JOSE_ALGORITHM_MAP]
+    if (!this.algorithm) {
+      throw new Error(`Unknown key type "${this.type}".`)
     }
-    this.invocationSigner = invocationSigner;
-    this.kmsClient = kmsClient;
-    this.capability = undefined;
+    this.invocationSigner = invocationSigner
+    this.kmsClient = kmsClient
+    this.capability = undefined
   }
 
   /**
@@ -52,10 +69,18 @@ export class Kek {
    *
    * @returns {Promise<Uint8Array>} The wrapped key bytes.
    */
-  async wrapKey({unwrappedKey}) {
-    const {id: kekId, kmsClient, capability, invocationSigner} = this;
-    return kmsClient.wrapKey(
-      {kekId, unwrappedKey, capability, invocationSigner});
+  async wrapKey({
+    unwrappedKey
+  }: {
+    unwrappedKey: Uint8Array
+  }): Promise<Uint8Array> {
+    const { id: kekId, kmsClient, capability, invocationSigner } = this
+    return kmsClient.wrapKey({
+      kekId,
+      unwrappedKey,
+      capability,
+      invocationSigner
+    })
   }
 
   /**
@@ -68,10 +93,18 @@ export class Kek {
    * @returns {Promise<Uint8Array|null>} Resolves to the key bytes or null if
    *   the unwrapping fails because the key does not match.
    */
-  async unwrapKey({wrappedKey}) {
-    const {id: kekId, kmsClient, capability, invocationSigner} = this;
-    return kmsClient.unwrapKey(
-      {kekId, wrappedKey, capability, invocationSigner});
+  async unwrapKey({
+    wrappedKey
+  }: {
+    wrappedKey: string
+  }): Promise<Uint8Array | null> {
+    const { id: kekId, kmsClient, capability, invocationSigner } = this
+    return kmsClient.unwrapKey({
+      kekId,
+      wrappedKey,
+      capability,
+      invocationSigner
+    })
   }
 
   /**
@@ -88,18 +121,25 @@ export class Kek {
    * @returns {Kek} The new Kek instance.
    */
   static async fromCapability({
-    capability, invocationSigner, kmsClient = new KmsClient()
-  }) {
+    capability,
+    invocationSigner,
+    kmsClient = new KmsClient()
+  }: {
+    capability?: any
+    invocationSigner?: any
+    kmsClient?: KmsClient
+  }): Promise<Kek> {
     // get key description via capability
-    const keyDescription = await kmsClient.getKeyDescription(
-      {capability, invocationSigner});
+    const keyDescription = await kmsClient.getKeyDescription({
+      capability,
+      invocationSigner
+    })
 
     // build asymmetric key from description
-    const id = KmsClient._getInvocationTarget({capability});
-    const {type} = keyDescription;
-    const key = new Kek({id, type, kmsClient, invocationSigner});
-    key.capability = capability;
-    return key;
+    const id = KmsClient._getInvocationTarget({ capability })
+    const { type } = keyDescription
+    const key = new Kek({ id, type, kmsClient, invocationSigner })
+    key.capability = capability
+    return key
   }
-
 }

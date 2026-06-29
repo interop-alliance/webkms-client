@@ -1,8 +1,7 @@
-# WebKMS Client _(@digitalbazaar/webkms-client)_
+# WebKMS Client _(@interop/webkms-client)_
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/digitalbazaar/webkms-client/main.yml)](https://github.com/digitalbazaar/webkms-client/actions/workflows/main.yml)
-[![Coverage status](https://img.shields.io/codecov/c/github/digitalbazaar/webkms-client)](https://codecov.io/gh/digitalbazaar/webkms-client)
-[![NPM Version](https://img.shields.io/npm/v/@digitalbazaar/webkms-client.svg)](https://npm.im/@digitalbazaar/webkms-client)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/interop-alliance/webkms-client/ci.yml)](https://github.com/interop-alliance/webkms-client/actions/workflows/ci.yml)
+[![NPM Version](https://img.shields.io/npm/v/@interop/webkms-client.svg)](https://npm.im/@interop/webkms-client)
 
 > A JavaScript WebKMS client library.
 
@@ -13,14 +12,13 @@
 - [Install](#install)
 - [Usage](#usage)
 - [Contribute](#contribute)
-- [Commercial Support](#commercial-support)
 - [License](#license)
 
 ## Background
 
 See also related specs:
 
-* [W3C CCG Latest Draft](https://w3c-ccg.github.io/webkms/)
+- [W3C CCG Latest Draft](https://w3c-ccg.github.io/webkms/)
 
 ## Security
 
@@ -28,7 +26,7 @@ TBD
 
 ## Install
 
-- Browsers and Node.js 18+ are supported.
+- Browsers and Node.js 24+ are supported.
 - [Web Crypto API][] required. Older browsers must use a polyfill.
 
 ### NPM
@@ -36,7 +34,7 @@ TBD
 To install via NPM:
 
 ```
-npm install @digitalbazaar/webkms-client
+npm install @interop/webkms-client
 ```
 
 ### Development
@@ -44,12 +42,21 @@ npm install @digitalbazaar/webkms-client
 To install locally (for development):
 
 ```
-git clone https://github.com/digitalbazaar/webkms-client.git
+git clone https://github.com/interop-alliance/webkms-client.git
 cd webkms-client
-npm install
+pnpm install
+```
+
+### Testing
+
+```
+pnpm test            # lint, build, Node (vitest) and browser (Playwright) tests
+pnpm run test:node   # Node tests only
+pnpm run test:browser  # browser tests only (run `pnpm exec playwright install chromium` first)
 ```
 
 ## Usage
+
 ### Modules
 
 <dl>
@@ -105,230 +112,236 @@ to produce a shared key.</p>
 <a name="module_webkms"></a>
 
 ### webkms
+
 WebKMS client for Javascript.
 
-
-* [webkms](#module_webkms)
-    * [.KmsClient](#module_webkms.exports.KmsClient)
-        * [new exports.KmsClient(options)](#new_module_webkms.exports.KmsClient_new)
+- [webkms](#module_webkms)
+  - [.KmsClient](#module_webkms.exports.KmsClient)
+    - [new exports.KmsClient(options)](#new_module_webkms.exports.KmsClient_new)
 
 <a name="module_webkms.exports.KmsClient"></a>
 
 ### webkms.KmsClient
+
 A WebKMS Client used to interface with a KMS.
 
 **Kind**: instance class of [<code>webkms</code>](#module_webkms)
 <a name="new_module_webkms.exports.KmsClient_new"></a>
 
 #### new exports.KmsClient(options)
+
 Creates a new KmsClient.
 
 **Returns**: <code>KmsClient</code> - The new instance.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| [options.keystore] | <code>string</code> | The ID of the keystore   that must be a URL that refers to the keystore's root storage   location; if not given,   then a separate capability must be given to each method called on the   client instance. |
-| [options.httpsAgent] | <code>object</code> | An optional   node.js `https.Agent` instance to use when making requests. |
+| Param                | Type                | Description                                                                                                                                                                                         |
+| -------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| options              | <code>object</code> | The options to use.                                                                                                                                                                                 |
+| [options.keystore]   | <code>string</code> | The ID of the keystore that must be a URL that refers to the keystore's root storage location; if not given, then a separate capability must be given to each method called on the client instance. |
+| [options.httpsAgent] | <code>object</code> | An optional node.js `https.Agent` instance to use when making requests.                                                                                                                             |
 
 <a name="webkms_generateKey"></a>
 
 ### webkms:generateKey(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Generates a new cryptographic key in the keystore.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - The key description for the key.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> - The
+key description for the key.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.kmsModule | <code>string</code> | The KMS module to use. |
-| options.type | <code>string</code> | The key type (e.g. 'AesKeyWrappingKey2019'). |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+| Param                    | Type                | Description                                                                             |
+| ------------------------ | ------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code> | The options to use.                                                                     |
+| options.kmsModule        | <code>string</code> | The KMS module to use.                                                                  |
+| options.type             | <code>string</code> | The key type (e.g. 'AesKeyWrappingKey2019').                                            |
+| [options.capability]     | <code>string</code> | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_getKeyDescription"></a>
 
 ### webkms:getKeyDescription(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Gets the key description for the given key ID.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - The key description.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> - The
+key description.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| [options.keyId] | <code>string</code> | The ID of the key. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+| Param                    | Type                | Description                                                                             |
+| ------------------------ | ------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code> | The options to use.                                                                     |
+| [options.keyId]          | <code>string</code> | The ID of the key.                                                                      |
+| [options.capability]     | <code>string</code> | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_revokeCapability"></a>
 
 ### webkms:revokeCapability(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Store a capability revocation.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - Resolves once the operation completes.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> -
+Resolves once the operation completes.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.capabilityToRevoke | <code>object</code> | The capability to revoke. |
-| [options.capability] | <code>string</code> | The zcap authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+| Param                      | Type                | Description                                                                             |
+| -------------------------- | ------------------- | --------------------------------------------------------------------------------------- |
+| options                    | <code>object</code> | The options to use.                                                                     |
+| options.capabilityToRevoke | <code>object</code> | The capability to revoke.                                                               |
+| [options.capability]       | <code>string</code> | The zcap authorization capability to use to authorize the invocation of this operation. |
+| options.invocationSigner   | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_wrapKey"></a>
 
 ### webkms:wrapKey(options) ⇒ <code>Promise.&lt;Uint8Array&gt;</code>
+
 Wraps a cryptographic key using a key encryption key (KEK).
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;Uint8Array&gt;</code> - The wrapped key bytes.
+**Kind**: global function **Returns**: <code>Promise.&lt;Uint8Array&gt;</code> -
+The wrapped key bytes.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.kekId | <code>string</code> | The ID of the wrapping key to use. |
-| options.unwrappedKey | <code>Uint8Array</code> | The unwrapped key material as   a Uint8Array. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+| Param                    | Type                    | Description                                                                             |
+| ------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code>     | The options to use.                                                                     |
+| options.kekId            | <code>string</code>     | The ID of the wrapping key to use.                                                      |
+| options.unwrappedKey     | <code>Uint8Array</code> | The unwrapped key material as a Uint8Array.                                             |
+| [options.capability]     | <code>string</code>     | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code>     | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_unwrapKey"></a>
 
 ### webkms:unwrapKey(options) ⇒ <code>Promise.&lt;(Uint8Array\|null)&gt;</code>
+
 Unwraps a cryptographic key using a key encryption key (KEK).
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;(Uint8Array\|null)&gt;</code> - Resolves to the unwrapped key material
-  or null if the unwrapping failed because the key did not match.
+**Kind**: global function **Returns**:
+<code>Promise.&lt;(Uint8Array\|null)&gt;</code> - Resolves to the unwrapped key
+material or null if the unwrapping failed because the key did not match.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.kekId | <code>string</code> | The ID of the unwrapping key to use. |
-| options.wrappedKey | <code>string</code> | The wrapped key material as a   base64url-encoded string. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+| Param                    | Type                | Description                                                                             |
+| ------------------------ | ------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code> | The options to use.                                                                     |
+| options.kekId            | <code>string</code> | The ID of the unwrapping key to use.                                                    |
+| options.wrappedKey       | <code>string</code> | The wrapped key material as a base64url-encoded string.                                 |
+| [options.capability]     | <code>string</code> | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_sign"></a>
 
 ### webkms:sign(options) ⇒ <code>Promise.&lt;Uint8Array&gt;</code>
-Signs some data. Note that the data will be sent to the server, so if
-this data is intended to be secret it should be hashed first. However,
-hashing the data first may present interoperability issues so choose
-wisely.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;Uint8Array&gt;</code> - The signature.
+Signs some data. Note that the data will be sent to the server, so if this data
+is intended to be secret it should be hashed first. However, hashing the data
+first may present interoperability issues so choose wisely.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.keyId | <code>string</code> | The ID of the signing key to use. |
-| options.data | <code>Uint8Array</code> | The data to sign as a Uint8Array. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+**Kind**: global function **Returns**: <code>Promise.&lt;Uint8Array&gt;</code> -
+The signature.
+
+| Param                    | Type                    | Description                                                                             |
+| ------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code>     | The options to use.                                                                     |
+| options.keyId            | <code>string</code>     | The ID of the signing key to use.                                                       |
+| options.data             | <code>Uint8Array</code> | The data to sign as a Uint8Array.                                                       |
+| [options.capability]     | <code>string</code>     | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code>     | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_verify"></a>
 
 ### webkms:verify(options) ⇒ <code>Promise.&lt;boolean&gt;</code>
-Verifies some data. Note that the data will be sent to the server, so if
-this data is intended to be secret it should be hashed first. However,
-hashing the data first may present interoperability issues so choose
-wisely.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;boolean&gt;</code> - `true` if verified, `false` if not.
+Verifies some data. Note that the data will be sent to the server, so if this
+data is intended to be secret it should be hashed first. However, hashing the
+data first may present interoperability issues so choose wisely.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.keyId | <code>string</code> | The ID of the signing key to use. |
-| options.data | <code>Uint8Array</code> | The data to verify as a Uint8Array. |
-| options.signature | <code>string</code> | The base64url-encoded signature to   verify. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+**Kind**: global function **Returns**: <code>Promise.&lt;boolean&gt;</code> -
+`true` if verified, `false` if not.
+
+| Param                    | Type                    | Description                                                                             |
+| ------------------------ | ----------------------- | --------------------------------------------------------------------------------------- |
+| options                  | <code>object</code>     | The options to use.                                                                     |
+| options.keyId            | <code>string</code>     | The ID of the signing key to use.                                                       |
+| options.data             | <code>Uint8Array</code> | The data to verify as a Uint8Array.                                                     |
+| options.signature        | <code>string</code>     | The base64url-encoded signature to verify.                                              |
+| [options.capability]     | <code>string</code>     | The authorization capability to use to authorize the invocation of this operation.      |
+| options.invocationSigner | <code>object</code>     | An API with an `id` property and a `sign` function for signing a capability invocation. |
 
 <a name="webkms_deriveSecret"></a>
 
 ### webkms:deriveSecret(options) ⇒ <code>Promise.&lt;Uint8Array&gt;</code>
-Derives a shared secret via the given peer public key, typically for use
-as one parameter for computing a shared key. It should not be used as
-a shared key itself, but rather input into a key derivation function (KDF)
-to produce a shared key.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;Uint8Array&gt;</code> - The shared secret bytes.
+Derives a shared secret via the given peer public key, typically for use as one
+parameter for computing a shared key. It should not be used as a shared key
+itself, but rather input into a key derivation function (KDF) to produce a
+shared key.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.keyId | <code>string</code> | The ID of the key agreement key to use. |
-| options.publicKey | <code>object</code> | The public key to compute the shared   secret against; the public key type must match the key agreement key's   type. |
-| [options.capability] | <code>string</code> | The authorization   capability to use to authorize the invocation of this operation. |
-| options.invocationSigner | <code>object</code> | An API with an   `id` property and a `sign` function for signing a capability invocation. |
+**Kind**: global function **Returns**: <code>Promise.&lt;Uint8Array&gt;</code> -
+The shared secret bytes.
+
+| Param                    | Type                | Description                                                                                                       |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| options                  | <code>object</code> | The options to use.                                                                                               |
+| options.keyId            | <code>string</code> | The ID of the key agreement key to use.                                                                           |
+| options.publicKey        | <code>object</code> | The public key to compute the shared secret against; the public key type must match the key agreement key's type. |
+| [options.capability]     | <code>string</code> | The authorization capability to use to authorize the invocation of this operation.                                |
+| options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation.                           |
 
 <a name="webkms_createKeystore"></a>
 
 ### webkms:createKeystore(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Creates a new keystore using the given configuration.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - Resolves to the configuration for the newly
-  created keystore.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> -
+Resolves to the configuration for the newly created keystore.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.url | <code>string</code> | The url to post the configuration to. |
-| options.config | <code>string</code> | The keystore's configuration. |
-| [options.httpsAgent] | <code>object</code> | An optional   node.js `https.Agent` instance to use when making requests. |
+| Param                | Type                | Description                                                             |
+| -------------------- | ------------------- | ----------------------------------------------------------------------- |
+| options              | <code>object</code> | The options to use.                                                     |
+| options.url          | <code>string</code> | The url to post the configuration to.                                   |
+| options.config       | <code>string</code> | The keystore's configuration.                                           |
+| [options.httpsAgent] | <code>object</code> | An optional node.js `https.Agent` instance to use when making requests. |
 
 <a name="webkms_getKeystore"></a>
 
 ### webkms:getKeystore(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Gets the configuration for a keystore by its ID.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - Resolves to the configuration for the keystore.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> -
+Resolves to the configuration for the keystore.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| options.id | <code>string</code> | The keystore's ID. |
-| [options.httpsAgent] | <code>object</code> | An optional   node.js `https.Agent` instance to use when making requests. |
+| Param                | Type                | Description                                                             |
+| -------------------- | ------------------- | ----------------------------------------------------------------------- |
+| options              | <code>object</code> | The options to use.                                                     |
+| options.id           | <code>string</code> | The keystore's ID.                                                      |
+| [options.httpsAgent] | <code>object</code> | An optional node.js `https.Agent` instance to use when making requests. |
 
 <a name="webkms_findKeystore"></a>
 
 ### webkms:findKeystore(options) ⇒ <code>Promise.&lt;object&gt;</code>
+
 Finds the configuration for a keystore by its controller and reference ID.
 
-**Kind**: global function
-**Returns**: <code>Promise.&lt;object&gt;</code> - Resolves to the configuration for the keystore.
+**Kind**: global function **Returns**: <code>Promise.&lt;object&gt;</code> -
+Resolves to the configuration for the keystore.
 
-| Param | Type | Description |
-| --- | --- | --- |
-| options | <code>object</code> | The options to use. |
-| [options.url] | <code>string</code> | The url to query. |
-| options.controller | <code>string</code> | The keystore's controller. |
-| [options.httpsAgent] | <code>object</code> | An optional   node.js `https.Agent` instance to use when making requests. |
+| Param                | Type                | Description                                                             |
+| -------------------- | ------------------- | ----------------------------------------------------------------------- |
+| options              | <code>object</code> | The options to use.                                                     |
+| [options.url]        | <code>string</code> | The url to query.                                                       |
+| options.controller   | <code>string</code> | The keystore's controller.                                              |
+| [options.httpsAgent] | <code>object</code> | An optional node.js `https.Agent` instance to use when making requests. |
 
 ## Contribute
 
-See [the contribute file](https://github.com/digitalbazaar/bedrock/blob/master/CONTRIBUTING.md)!
+Please follow the existing code style.
 
 PRs accepted.
 
 If editing the Readme, please conform to the
 [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
 
-## Commercial Support
-
-Commercial support for this library is available upon request from
-Digital Bazaar: support@digitalbazaar.com
-
 ## License
 
-[New BSD License (3-clause)](LICENSE) © Digital Bazaar
+[BSD-3-Clause](LICENSE) Copyright 2019-2025 Digital Bazaar, Inc.
 
-[Web Crypto API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+[Web Crypto API]:
+  https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API

@@ -1,11 +1,15 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
-import crypto from './crypto.js';
-import {Ed25519VerificationKey2020} from
-  '@digitalbazaar/ed25519-verification-key-2020';
+import crypto from './crypto.js'
+import { Ed25519VerificationKey2020 } from '@digitalbazaar/ed25519-verification-key-2020'
 
 export class CapabilityAgent {
+  handle: string
+  id: string
+  signer: any
+  _keyPair: any
+
   /**
    * Creates a new instance of a CapabilityAgent that uses a KmsClient
    * instance that is, by default, bound to a particular keystore.
@@ -34,13 +38,21 @@ export class CapabilityAgent {
    *
    * @returns {CapabilityAgent} The new instance.
    */
-  constructor({handle, signer, keyPair}) {
-    this.handle = handle;
+  constructor({
+    handle,
+    signer,
+    keyPair
+  }: {
+    handle: string
+    signer: any
+    keyPair: any
+  }) {
+    this.handle = handle
     // signer is a did:key
-    this.id = signer.id.split('#')[0];
-    this.signer = signer;
+    this.id = signer.id.split('#')[0]
+    this.signer = signer
     // reference to core key pair used for invocation signing
-    this._keyPair = keyPair;
+    this._keyPair = keyPair
   }
 
   /**
@@ -50,8 +62,8 @@ export class CapabilityAgent {
    * @returns {object} An API with an `id` property, a `type` property, and a
    *   `sign` function.
    */
-  getSigner() {
-    return this.signer;
+  getSigner(): any {
+    return this.signer
   }
 
   /**
@@ -71,79 +83,111 @@ export class CapabilityAgent {
    *
    * @returns {Promise<CapabilityAgent>} The new CapabilityAgent instance.
    */
-  static async fromSecret({secret, handle, keyName = 'default'}) {
-    if(typeof handle !== 'string') {
-      throw new TypeError('"handle" must be a string.');
+  static async fromSecret({
+    secret,
+    handle,
+    keyName = 'default'
+  }: {
+    secret?: string | Uint8Array
+    handle: string
+    keyName?: string
+  }): Promise<CapabilityAgent> {
+    if (typeof handle !== 'string') {
+      throw new TypeError('"handle" must be a string.')
     }
-    if(typeof secret === 'string') {
-      secret = _stringToUint8Array(secret);
-    } else if(!(secret instanceof Uint8Array)) {
-      throw new TypeError('"secret" must be a Uint8Array or a string.');
+    if (typeof secret === 'string') {
+      secret = _stringToUint8Array(secret)
+    } else if (!(secret instanceof Uint8Array)) {
+      throw new TypeError('"secret" must be a Uint8Array or a string.')
     }
 
     // compute salted SHA-256 hash as the seed for the key
-    const seed = await _computeSaltedHash({secret, salt: handle});
-    const {signer, keyPair} = await _keyFromSeedAndName({seed, keyName});
-    return new CapabilityAgent({handle, signer, keyPair});
+    const seed = await _computeSaltedHash({ secret, salt: handle })
+    const { signer, keyPair } = await _keyFromSeedAndName({ seed, keyName })
+    return new CapabilityAgent({ handle, signer, keyPair })
   }
 
-  static async fromBiometric() {
-    throw new Error('Not implemented.');
+  static async fromBiometric(): Promise<CapabilityAgent> {
+    throw new Error('Not implemented.')
   }
 
-  static async fromFido() {
-    throw new Error('Not implemented.');
+  static async fromFido(): Promise<CapabilityAgent> {
+    throw new Error('Not implemented.')
   }
 }
 
-function _stringToUint8Array(data) {
-  if(typeof data === 'string') {
+function _stringToUint8Array(data: string | Uint8Array): Uint8Array {
+  if (typeof data === 'string') {
     // convert data to Uint8Array
-    return new TextEncoder().encode(data);
+    return new TextEncoder().encode(data)
   }
-  if(!(data instanceof Uint8Array)) {
-    throw new TypeError('"data" must be a string or Uint8Array.');
+  if (!(data instanceof Uint8Array)) {
+    throw new TypeError('"data" must be a string or Uint8Array.')
   }
-  return data;
+  return data
 }
 
-function _uint8ArrayToString(data) {
-  if(typeof data === 'string') {
+function _uint8ArrayToString(data: string | Uint8Array): string {
+  if (typeof data === 'string') {
     // already a string
-    return data;
+    return data
   }
-  if(!(data instanceof Uint8Array)) {
-    throw new TypeError('"data" must be a string or Uint8Array.');
+  if (!(data instanceof Uint8Array)) {
+    throw new TypeError('"data" must be a string or Uint8Array.')
   }
   // convert Uint8Array to string
-  return new TextDecoder().decode(data);
+  return new TextDecoder().decode(data)
 }
 
-async function _computeSaltedHash({secret, salt}) {
+async function _computeSaltedHash({
+  secret,
+  salt
+}: {
+  secret: string | Uint8Array
+  salt: string | Uint8Array
+}): Promise<Uint8Array> {
   // compute salted SHA-256 hash
-  salt = _uint8ArrayToString(salt);
-  secret = _uint8ArrayToString(secret);
+  salt = _uint8ArrayToString(salt)
+  secret = _uint8ArrayToString(secret)
   const toHash = _stringToUint8Array(
-    `${encodeURIComponent(salt)}:${encodeURIComponent(secret)}`);
-  const algorithm = {name: 'SHA-256'};
-  return new Uint8Array(await crypto.subtle.digest(algorithm, toHash));
+    `${encodeURIComponent(salt)}:${encodeURIComponent(secret)}`
+  )
+  const algorithm = { name: 'SHA-256' }
+  return new Uint8Array(
+    await crypto.subtle.digest(algorithm, toHash as Uint8Array<ArrayBuffer>)
+  )
 }
 
-async function _keyFromSeedAndName({seed, keyName}) {
-  const extractable = false;
+async function _keyFromSeedAndName({
+  seed,
+  keyName
+}: {
+  seed: Uint8Array
+  keyName: string
+}): Promise<{ signer: any; keyPair: any }> {
+  const extractable = false
   const hmacKey = await crypto.subtle.importKey(
-    'raw', seed, {name: 'HMAC', hash: {name: 'SHA-256'}}, extractable,
-    ['sign']);
-  const nameBuffer = _stringToUint8Array(keyName);
+    'raw',
+    seed as Uint8Array<ArrayBuffer>,
+    { name: 'HMAC', hash: { name: 'SHA-256' } },
+    extractable,
+    ['sign']
+  )
+  const nameBuffer = _stringToUint8Array(keyName)
   const signature = new Uint8Array(
-    await crypto.subtle.sign(hmacKey.algorithm, hmacKey, nameBuffer));
+    await crypto.subtle.sign(
+      hmacKey.algorithm,
+      hmacKey,
+      nameBuffer as Uint8Array<ArrayBuffer>
+    )
+  )
   // generate Ed25519 key from HMAC signature
-  const keyPair = await Ed25519VerificationKey2020.generate({seed: signature});
+  const keyPair = await Ed25519VerificationKey2020.generate({ seed: signature })
 
   // create key and specify ID for key using fingerprint
-  const signer = keyPair.signer();
-  const fingerprint = keyPair.fingerprint();
-  signer.id = `did:key:${fingerprint}#${fingerprint}`;
-  signer.type = keyPair.type;
-  return {signer, keyPair};
+  const signer = keyPair.signer()
+  const fingerprint = keyPair.fingerprint()
+  signer.id = `did:key:${fingerprint}#${fingerprint}`
+  signer.type = keyPair.type
+  return { signer, keyPair }
 }

@@ -1,0 +1,28 @@
+{
+  // Build config. Mirrors the isomorphic-lib-template tsconfig, with one
+  // deviation carried by this fork:
+  //   - "types": ["node"] is required so `node:crypto` (src/crypto.ts) resolves;
+  //     TS6 + "moduleResolution": "Bundler" does not auto-include @types/node.
+  //     Remaining untyped-dependency shims live in src/declarations.d.ts.
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

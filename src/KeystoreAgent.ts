@@ -1,21 +1,26 @@
 /*!
  * Copyright (c) 2019-2026 Digital Bazaar, Inc. All rights reserved.
  */
-import {AsymmetricKey} from './AsymmetricKey.js';
-import {CATEGORY_TO_CLASS} from './categoryToClass.js';
-import {Hmac} from './Hmac.js';
-import {Kek} from './Kek.js';
-import {KeyAgreementKey} from './KeyAgreementKey.js';
-import {KmsClient} from './KmsClient.js';
-import {RECOMMENDED_KEYS} from './recommendedKeys.js';
+import { AsymmetricKey } from './AsymmetricKey.js'
+import type { CapabilityAgent } from './CapabilityAgent.js'
+import { CATEGORY_TO_CLASS } from './categoryToClass.js'
+import { Hmac } from './Hmac.js'
+import { Kek } from './Kek.js'
+import { KeyAgreementKey } from './KeyAgreementKey.js'
+import { KmsClient } from './KmsClient.js'
+import { RECOMMENDED_KEYS } from './recommendedKeys.js'
 
-const VERSIONS = ['recommended', 'fips'];
+const VERSIONS = ['recommended', 'fips']
 
 /**
  * @class CapabilityAgent
  */
 
 export class KeystoreAgent {
+  capabilityAgent: CapabilityAgent
+  keystoreId?: string
+  kmsClient: KmsClient
+
   /**
    * Creates a new instance of a KeystoreAgent that uses the
    * given CapabilityAgent and KmsClient to interact with a keystore. If
@@ -32,16 +37,24 @@ export class KeystoreAgent {
    *
    * @returns {KeystoreAgent} The new instance.
    */
-  constructor({capabilityAgent, keystoreId, kmsClient = new KmsClient()}) {
-    if(keystoreId && typeof keystoreId !== 'string') {
-      throw new TypeError('"keystoreId" must be a string.');
+  constructor({
+    capabilityAgent,
+    keystoreId,
+    kmsClient = new KmsClient()
+  }: {
+    capabilityAgent: CapabilityAgent
+    keystoreId?: string
+    kmsClient?: KmsClient
+  }) {
+    if (keystoreId && typeof keystoreId !== 'string') {
+      throw new TypeError('"keystoreId" must be a string.')
     }
 
-    this.capabilityAgent = capabilityAgent;
-    this.keystoreId = keystoreId;
-    this.kmsClient = kmsClient;
-    if(this.keystoreId) {
-      this.kmsClient.keystoreId = keystoreId;
+    this.capabilityAgent = capabilityAgent
+    this.keystoreId = keystoreId
+    this.kmsClient = kmsClient
+    if (this.keystoreId) {
+      this.kmsClient.keystoreId = keystoreId
     }
   }
 
@@ -86,33 +99,55 @@ export class KeystoreAgent {
    *   instance.
    */
   async generateKey({
-    category, type,
-    capability, maxCapabilityChainLength,
-    publicAlias, publicAliasTemplate,
+    category,
+    type,
+    capability,
+    maxCapabilityChainLength,
+    publicAlias,
+    publicAliasTemplate,
     version = 'recommended'
-  } = {}) {
-    _assertVersion(version);
+  }: {
+    category?: string
+    type?: string
+    capability?: any
+    maxCapabilityChainLength?: number
+    publicAlias?: string
+    publicAliasTemplate?: string
+    version?: string
+  } = {}): Promise<object> {
+    _assertVersion(version)
 
     // for the time being, fips and recommended are the same; there is no
     // other standardized key wrapping algorithm
-    const keyDetails = RECOMMENDED_KEYS.get(type) ??
-      {Class: CATEGORY_TO_CLASS.get(category), type};
-    if(!(keyDetails.Class && keyDetails.type)) {
-      throw new Error(`Unknown key type "${type}".`);
+    const keyDetails = RECOMMENDED_KEYS.get(type as string) ?? {
+      Class: CATEGORY_TO_CLASS.get(category as string),
+      type
     }
-    const {type: fullType, Class} = keyDetails;
+    if (!(keyDetails.Class && keyDetails.type)) {
+      throw new Error(`Unknown key type "${type}".`)
+    }
+    const { type: fullType, Class } = keyDetails
 
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    const {keyId, keyDescription} = await kmsClient.generateKey({
-      type: fullType, invocationSigner, capability,
-      maxCapabilityChainLength, publicAlias, publicAliasTemplate
-    });
-    const {id} = keyDescription;
-    ({type} = keyDescription);
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    const { keyId, keyDescription } = await kmsClient.generateKey({
+      type: fullType,
+      invocationSigner,
+      capability,
+      maxCapabilityChainLength,
+      publicAlias,
+      publicAliasTemplate
+    })
+    const { id } = keyDescription
+    ;({ type } = keyDescription)
     return new Class({
-      id, kmsId: keyId, type, invocationSigner, kmsClient, keyDescription
-    });
+      id,
+      kmsId: keyId,
+      type,
+      invocationSigner,
+      kmsClient,
+      keyDescription
+    })
   }
 
   /**
@@ -135,13 +170,21 @@ export class KeystoreAgent {
    *
    * @returns {Promise<object>} The new Kek instance.
    */
-  async getKek({id, type, capability}) {
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    if(capability) {
-      return Kek.fromCapability({capability, invocationSigner, kmsClient});
+  async getKek({
+    id,
+    type,
+    capability
+  }: {
+    id?: string
+    type?: string
+    capability?: any
+  }): Promise<Kek> {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    if (capability) {
+      return Kek.fromCapability({ capability, invocationSigner, kmsClient })
     }
-    return new Kek({id, type, capability, invocationSigner, kmsClient});
+    return new Kek({ id, type, capability, invocationSigner, kmsClient })
   }
 
   /**
@@ -163,13 +206,21 @@ export class KeystoreAgent {
    *
    * @returns {Promise<object>} The new Hmac instance.
    */
-  async getHmac({id, type, capability}) {
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    if(capability) {
-      return Hmac.fromCapability({capability, invocationSigner, kmsClient});
+  async getHmac({
+    id,
+    type,
+    capability
+  }: {
+    id?: string
+    type?: string
+    capability?: any
+  }): Promise<Hmac> {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    if (capability) {
+      return Hmac.fromCapability({ capability, invocationSigner, kmsClient })
     }
-    return new Hmac({id, type, capability, invocationSigner, kmsClient});
+    return new Hmac({ id, type, capability, invocationSigner, kmsClient })
   }
 
   /**
@@ -195,15 +246,34 @@ export class KeystoreAgent {
    *
    * @returns {Promise<object>} The new Hmac instance.
    */
-  async getAsymmetricKey({id, kmsId, type, capability}) {
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    if(capability) {
-      return AsymmetricKey.fromCapability(
-        {capability, invocationSigner, kmsClient});
+  async getAsymmetricKey({
+    id,
+    kmsId,
+    type,
+    capability
+  }: {
+    id?: string
+    kmsId?: string
+    type?: string
+    capability?: any
+  }): Promise<AsymmetricKey> {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    if (capability) {
+      return AsymmetricKey.fromCapability({
+        capability,
+        invocationSigner,
+        kmsClient
+      })
     }
-    return new AsymmetricKey(
-      {id, kmsId, type, capability, invocationSigner, kmsClient});
+    return new AsymmetricKey({
+      id,
+      kmsId,
+      type,
+      capability,
+      invocationSigner,
+      kmsClient
+    })
   }
 
   /**
@@ -229,15 +299,34 @@ export class KeystoreAgent {
    *
    * @returns {Promise<object>} The new Hmac instance.
    */
-  async getKeyAgreementKey({id, kmsId, type, capability}) {
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    if(capability) {
-      return KeyAgreementKey.fromCapability(
-        {capability, invocationSigner, kmsClient});
+  async getKeyAgreementKey({
+    id,
+    kmsId,
+    type,
+    capability
+  }: {
+    id?: string
+    kmsId?: string
+    type?: string
+    capability?: any
+  }): Promise<KeyAgreementKey> {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    if (capability) {
+      return KeyAgreementKey.fromCapability({
+        capability,
+        invocationSigner,
+        kmsClient
+      })
     }
-    return new KeyAgreementKey(
-      {id, kmsId, type, capability, invocationSigner, kmsClient});
+    return new KeyAgreementKey({
+      id,
+      kmsId,
+      type,
+      capability,
+      invocationSigner,
+      kmsClient
+    })
   }
 
   /**
@@ -250,18 +339,24 @@ export class KeystoreAgent {
    *
    * @returns {Promise<object>} Resolves to the new keystore configuration.
    */
-  async updateConfig({capability, config}) {
-    const {capabilityAgent, kmsClient} = this;
-    const invocationSigner = capabilityAgent.getSigner();
-    return kmsClient.updateKeystore({capability, config, invocationSigner});
+  async updateConfig({
+    capability,
+    config
+  }: {
+    capability?: any
+    config: any
+  }): Promise<any> {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    return kmsClient.updateKeystore({ capability, config, invocationSigner })
   }
 }
 
-function _assertVersion(version) {
-  if(typeof version !== 'string') {
-    throw new TypeError('"version" must be a string.');
+function _assertVersion(version: string): void {
+  if (typeof version !== 'string') {
+    throw new TypeError('"version" must be a string.')
   }
-  if(!VERSIONS.includes(version)) {
-    throw new Error(`Unsupported version "${version}"`);
+  if (!VERSIONS.includes(version)) {
+    throw new Error(`Unsupported version "${version}"`)
   }
 }
