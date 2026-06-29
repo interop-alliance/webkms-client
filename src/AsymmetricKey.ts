@@ -3,17 +3,19 @@
  */
 import { KmsClient } from './KmsClient.js'
 
-/* Note: Maps base58-encoded multikey header values to an appropriate JOSE
-algorithm | curve name. A future implementation may actually decode the
-multibase-encoded values and do mapping based directly on the expected header
-bytes; this implementation should have the same affect but has optimized
-away the decoding step.
-
-Supported algorithms:
-
-Bls12381G2, P-256, P-384, P-521, ed25519, secp256k1 (P-256K).
-
-See: https://github.com/multiformats/multicodec/blob/master/table.csv */
+/**
+ * Note: Maps base58-encoded multikey header values to an appropriate JOSE
+ * algorithm | curve name. A future implementation may actually decode the
+ * multibase-encoded values and do mapping based directly on the expected header
+ * bytes; this implementation should have the same effect but has optimized
+ * away the decoding step.
+ *
+ * Supported algorithms:
+ *
+ * Bls12381G2, P-256, P-384, P-521, ed25519, secp256k1 (P-256K).
+ *
+ * See: https://github.com/multiformats/multicodec/blob/master/table.csv
+ */
 const BASE58_MULTIKEY_HEADER_TO_JOSE = new Map<string, string>([
   ['zUC6', 'Bls12381G2'],
   ['zUC7', 'Bls12381G2'],

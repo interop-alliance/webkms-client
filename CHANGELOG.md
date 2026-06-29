@@ -20,8 +20,7 @@
   - Raised the minimum supported Node.js engine to `>=24`.
   - Reworked CI (GitHub Actions) and added an npm publish workflow with
     provenance.
-  - Updated package `exports` to resolve to `dist`; the isomorphic Web Crypto
-    swap is preserved via the `browser` field.
+  - Updated package `exports` to resolve to `dist`.
 - **Swapped dependencies for `@interop` and `@scure` counterparts.** No changes
   to library behavior, public API, or return shapes.
 
@@ -35,6 +34,10 @@
 
 - Dropped the Codecov upload; coverage is now generated locally
   (`pnpm run test:coverage`).
+- Removed the `src/crypto.ts` / `src/crypto-browser.ts` isomorphic split and the
+  `browser` field that swapped them. Both resolved to a standard Web Crypto
+  object; on Node.js 24+ and modern browsers, `globalThis.crypto` is used
+  directly.
 
 ## 14.3.0 - 2025-01-17
 

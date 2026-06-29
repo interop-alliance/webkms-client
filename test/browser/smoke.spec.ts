@@ -4,11 +4,8 @@
 import { test, expect } from '@playwright/test'
 
 // Smoke test: prove the bundle loads in a real browser and a core API path
-// works. Importing `index` at all exercises the isomorphic crypto swap --
-// `src/crypto.ts` imports `node:crypto`, so the import only succeeds when the
-// browser resolves `crypto-browser.ts` (globalThis.crypto) instead.
-// `CapabilityAgent.fromSecret` then drives `globalThis.crypto.subtle`
-// (digest + importKey + sign).
+// works. `CapabilityAgent.fromSecret` drives `globalThis.crypto.subtle`
+// (digest + importKey + sign), exercising the WebCrypto path in the browser.
 test('webkms-client loads in the browser and uses webcrypto', async ({
   page
 }) => {

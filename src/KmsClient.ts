@@ -385,7 +385,9 @@ export class KmsClient {
         headers,
         json: operation
       })
-      return base64urlnopad.decode((result.data as { wrappedKey: string }).wrappedKey)
+      return base64urlnopad.decode(
+        (result.data as { wrappedKey: string }).wrappedKey
+      )
     } catch (e: any) {
       _handleClientError({
         message: 'Error wrapping key.',
