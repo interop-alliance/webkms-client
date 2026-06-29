@@ -22,6 +22,14 @@
     provenance.
   - Updated package `exports` to resolve to `dist`; the isomorphic Web Crypto
     swap is preserved via the `browser` field.
+- **Swapped dependencies for `@interop` and `@scure` counterparts.** No changes
+  to library behavior, public API, or return shapes.
+
+### Fixed
+
+- `Hmac` cache pruning now checks `cache.size` instead of the removed
+  `cache.length` property, so an emptied cache correctly stops rescheduling its
+  prune timer.
 
 ### Removed
 

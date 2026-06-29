@@ -6,8 +6,8 @@ export default defineConfig(({ mode }) => ({
   // isomorphic crypto module to its browser implementation so the bundle loads
   // without `node:crypto`. The vitest node run (mode 'test') keeps the
   // node:crypto-backed module. This mirrors the package.json `browser` field
-  // for first-party source served directly by vite; Phase 8 makes the swap
-  // permanent for consumers via the `browser` export condition.
+  // for first-party source served directly by vite; for consumers the swap is
+  // made permanent via the `browser` export condition.
   resolve:
     mode === 'test'
       ? undefined

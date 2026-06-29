@@ -1,9 +1,9 @@
 /*!
  * Copyright (c) 2019-2025 Digital Bazaar, Inc. All rights reserved.
  */
-import * as base64url from 'base64url-universal'
+import { base64urlnopad } from '@scure/base'
 import { KmsClient } from './KmsClient.js'
-import { LruCache } from '@digitalbazaar/lru-memoize'
+import { LruCache } from '@interop/lru-memoize'
 
 const CACHE_MAX = 100
 const CACHE_TTL = 3000
@@ -102,7 +102,7 @@ export class Hmac {
     }
 
     return this._cache.memoize({
-      key: `sign-${base64url.encode(data)}`,
+      key: `sign-${base64urlnopad.encode(data)}`,
       fn: () => this._uncachedSign({ data, useCache })
     })
   }
@@ -135,7 +135,7 @@ export class Hmac {
     }
 
     return this._cache.memoize({
-      key: `verify-${base64url.encode(data)}`,
+      key: `verify-${base64urlnopad.encode(data)}`,
       fn: () => this._uncachedVerify({ data, signature, useCache })
     })
   }
@@ -177,7 +177,7 @@ export class Hmac {
 
   _pruneCache(): void {
     this._cache.cache.purgeStale()
-    if (this._cache.cache.length === 0) {
+    if (this._cache.cache.size === 0) {
       // cache is empty, do not schedule pruning
       this._pruneCacheTimer = null
     } else {
