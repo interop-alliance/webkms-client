@@ -1,9 +1,16 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
-import {KmsClient} from './KmsClient.js';
+import { KmsClient } from './KmsClient.js'
 
 export class KeyAgreementKey {
+  id?: string
+  kmsId?: string
+  type?: string
+  invocationSigner: any
+  kmsClient: KmsClient
+  capability: any
+
   /**
    * Creates a new instance of a key agreement key.
    *
@@ -23,27 +30,39 @@ export class KeyAgreementKey {
    * @returns {KeyAgreementKey} The new AsymmetricKey instance.
    */
   constructor({
-    id, kmsId = id, type, capability, invocationSigner,
+    id,
+    kmsId = id,
+    type,
+    capability,
+    invocationSigner,
     kmsClient = new KmsClient()
+  }: {
+    id?: string
+    kmsId?: string
+    type?: string
+    capability?: any
+    invocationSigner?: any
+    kmsClient?: KmsClient
   }) {
-    if(capability) {
+    if (capability) {
       throw new Error(
         '"capability" parameter not allowed in constructor; ' +
-        'use ".fromCapability" instead.');
+          'use ".fromCapability" instead.'
+      )
     }
-    this.id = id;
-    this.kmsId = kmsId;
-    this.type = type;
-    this.invocationSigner = invocationSigner;
-    this.kmsClient = kmsClient;
-    this.capability = undefined;
+    this.id = id
+    this.kmsId = kmsId
+    this.type = type
+    this.invocationSigner = invocationSigner
+    this.kmsClient = kmsClient
+    this.capability = undefined
   }
 
   /**
-  * Derives a shared secret via the given peer public key, typically for use
-  * as one parameter for computing a shared key. It should not be used as
-  * a shared key itself, but rather input into a key derivation function (KDF)
-  * to produce a shared key.
+   * Derives a shared secret via the given peer public key, typically for use
+   * as one parameter for computing a shared key. It should not be used as
+   * a shared key itself, but rather input into a key derivation function (KDF)
+   * to produce a shared key.
    *
    * @param {object} options - The options to use.
    * @param {object} options.publicKey - The public key to compute the shared
@@ -52,18 +71,23 @@ export class KeyAgreementKey {
    *
    * @returns {Promise<Uint8Array>} The shared secret bytes.
    */
-  async deriveSecret({publicKey}) {
-    if(!publicKey || typeof publicKey !== 'object') {
-      throw new TypeError('"publicKey" must be an object.');
+  async deriveSecret({ publicKey }: { publicKey: any }): Promise<Uint8Array> {
+    if (!publicKey || typeof publicKey !== 'object') {
+      throw new TypeError('"publicKey" must be an object.')
     }
-    if(publicKey.type !== this.type) {
+    if (publicKey.type !== this.type) {
       throw Error(
         `The given public key type "${publicKey.type}" does not match this ` +
-        `key agreement key's ${this.type}.`);
+          `key agreement key's ${this.type}.`
+      )
     }
-    const {kmsId: keyId, kmsClient, capability, invocationSigner} = this;
-    return kmsClient.deriveSecret(
-      {keyId, publicKey, capability, invocationSigner});
+    const { kmsId: keyId, kmsClient, capability, invocationSigner } = this
+    return kmsClient.deriveSecret({
+      keyId,
+      publicKey,
+      capability,
+      invocationSigner
+    })
   }
 
   /**
@@ -80,19 +104,31 @@ export class KeyAgreementKey {
    * @returns {KeyAgreementKey} The new KeyAgreementKey instance.
    */
   static async fromCapability({
-    capability, invocationSigner, kmsClient = new KmsClient()
-  }) {
+    capability,
+    invocationSigner,
+    kmsClient = new KmsClient()
+  }: {
+    capability?: any
+    invocationSigner?: any
+    kmsClient?: KmsClient
+  }): Promise<KeyAgreementKey> {
     // get key description via capability
-    const keyDescription = await kmsClient.getKeyDescription(
-      {capability, invocationSigner});
+    const keyDescription = await kmsClient.getKeyDescription({
+      capability,
+      invocationSigner
+    })
 
     // build asymmetric key from description
-    const kmsId = KmsClient._getInvocationTarget({capability});
-    const {id, type} = keyDescription;
+    const kmsId = KmsClient._getInvocationTarget({ capability })
+    const { id, type } = keyDescription
     const key = new KeyAgreementKey({
-      id, kmsId, type, kmsClient, invocationSigner
-    });
-    key.capability = capability;
-    return key;
+      id,
+      kmsId,
+      type,
+      kmsClient,
+      invocationSigner
+    })
+    key.capability = capability
+    return key
   }
 }

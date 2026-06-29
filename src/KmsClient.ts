@@ -1,13 +1,12 @@
 /*!
  * Copyright (c) 2019-2025 Digital Bazaar, Inc. All rights reserved.
  */
-import * as base64url from 'base64url-universal';
-import {DEFAULT_HEADERS, httpClient} from '@digitalbazaar/http-client';
-import {LruCache} from '@digitalbazaar/lru-memoize';
-import {signCapabilityInvocation} from
-  '@digitalbazaar/http-signature-zcap-invoke';
+import * as base64url from 'base64url-universal'
+import { DEFAULT_HEADERS, httpClient } from '@digitalbazaar/http-client'
+import { LruCache } from '@digitalbazaar/lru-memoize'
+import { signCapabilityInvocation } from '@digitalbazaar/http-signature-zcap-invoke'
 
-const ZCAP_ROOT_PREFIX = 'urn:zcap:root:';
+const ZCAP_ROOT_PREFIX = 'urn:zcap:root:'
 
 // process-wide shared cache for key descriptions:
 const KEY_DESCRIPTION_CACHE = new LruCache({
@@ -15,7 +14,7 @@ const KEY_DESCRIPTION_CACHE = new LruCache({
   max: 1000,
   // 5 min TTL (key descriptions rarely, if ever, change)
   ttl: 1000 * 60 * 5
-});
+})
 
 /**
  * @class
@@ -23,6 +22,10 @@ const KEY_DESCRIPTION_CACHE = new LruCache({
  * @memberof module:webkms
  */
 export class KmsClient {
+  keystoreId?: string
+  agent: any
+  defaultHeaders: any
+
   /**
    * Creates a new KmsClient.
    *
@@ -38,13 +41,21 @@ export class KmsClient {
    *
    * @returns {KmsClient} The new instance.
    */
-  constructor({keystoreId, httpsAgent, defaultHeaders} = {}) {
-    if(keystoreId) {
-      _assert(keystoreId, 'keystoreId', 'string');
+  constructor({
+    keystoreId,
+    httpsAgent,
+    defaultHeaders
+  }: {
+    keystoreId?: string
+    httpsAgent?: any
+    defaultHeaders?: any
+  } = {}) {
+    if (keystoreId) {
+      _assert(keystoreId, 'keystoreId', 'string')
     }
-    this.keystoreId = keystoreId;
-    this.agent = httpsAgent;
-    this.defaultHeaders = {...DEFAULT_HEADERS, ...defaultHeaders};
+    this.keystoreId = keystoreId
+    this.agent = httpsAgent
+    this.defaultHeaders = { ...DEFAULT_HEADERS, ...defaultHeaders }
   }
 
   /**
@@ -70,79 +81,103 @@ export class KmsClient {
    * @returns {Promise<object>} The new key ID and key description for the key.
    */
   async generateKey({
-    type, capability, invocationSigner,
-    maxCapabilityChainLength, publicAlias, publicAliasTemplate
-  }) {
-    _assert(type, 'type', 'string');
-    _assert(invocationSigner, 'invocationSigner', 'object');
-    if(maxCapabilityChainLength !== undefined &&
-      !(typeof maxCapabilityChainLength === 'number' &&
-      maxCapabilityChainLength >= 1 &&
-      maxCapabilityChainLength <= 10)) {
+    type,
+    capability,
+    invocationSigner,
+    maxCapabilityChainLength,
+    publicAlias,
+    publicAliasTemplate
+  }: {
+    type?: string
+    capability?: any
+    invocationSigner?: any
+    maxCapabilityChainLength?: number
+    publicAlias?: string
+    publicAliasTemplate?: string
+  }): Promise<any> {
+    _assert(type, 'type', 'string')
+    _assert(invocationSigner, 'invocationSigner', 'object')
+    if (
+      maxCapabilityChainLength !== undefined &&
+      !(
+        typeof maxCapabilityChainLength === 'number' &&
+        maxCapabilityChainLength >= 1 &&
+        maxCapabilityChainLength <= 10
+      )
+    ) {
       throw new Error(
-        '"maxCapabilityChainLength" must be an integer between 1 and 10.');
+        '"maxCapabilityChainLength" must be an integer between 1 and 10.'
+      )
     }
-    if(publicAlias !== undefined) {
-      _assert(publicAlias, 'publicAlias', 'string');
+    if (publicAlias !== undefined) {
+      _assert(publicAlias, 'publicAlias', 'string')
     }
-    if(publicAliasTemplate !== undefined) {
-      _assert(publicAliasTemplate, 'publicAliasTemplate', 'string');
+    if (publicAliasTemplate !== undefined) {
+      _assert(publicAliasTemplate, 'publicAliasTemplate', 'string')
     }
-    if(publicAlias && publicAliasTemplate) {
+    if (publicAlias && publicAliasTemplate) {
       throw new Error(
-        'Only one of "publicAlias" and "publicAliasTemplate" may be given.');
+        'Only one of "publicAlias" and "publicAliasTemplate" may be given.'
+      )
     }
 
-    const operation = {
+    const operation: any = {
       type: 'GenerateKeyOperation',
-      invocationTarget: {type}
-    };
-    if(maxCapabilityChainLength) {
-      operation.invocationTarget.maxCapabilityChainLength =
-        maxCapabilityChainLength;
+      invocationTarget: { type }
     }
-    if(publicAlias) {
-      operation.invocationTarget.publicAlias = publicAlias;
-    } else if(publicAliasTemplate) {
-      operation.invocationTarget.publicAliasTemplate = publicAliasTemplate;
+    if (maxCapabilityChainLength) {
+      operation.invocationTarget.maxCapabilityChainLength =
+        maxCapabilityChainLength
+    }
+    if (publicAlias) {
+      operation.invocationTarget.publicAlias = publicAlias
+    } else if (publicAliasTemplate) {
+      operation.invocationTarget.publicAliasTemplate = publicAliasTemplate
     }
 
     // determine url from capability or use defaults
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      const {keystoreId} = this;
-      url = `${keystoreId}/keys`;
-      capability = _getRootZcapId({keystoreId});
+      const { keystoreId } = this
+      url = `${keystoreId}/keys`
+      capability = _getRootZcapId({ keystoreId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'generateKey'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'generateKey'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      return result.data;
-    } catch(e) {
-      let cause;
-      if(e.status === 409) {
-        cause = new Error('Duplicate error.');
-        cause.name = 'DuplicateError';
-        cause.cause = e;
+        agent,
+        headers,
+        json: operation
+      })
+      return result.data
+    } catch (e: any) {
+      let cause
+      if (e.status === 409) {
+        cause = new Error('Duplicate error.')
+        cause.name = 'DuplicateError'
+        cause.cause = e
       } else {
-        cause = e;
+        cause = e
       }
 
       _handleClientError({
         message: 'Error generating key.',
         cause
-      });
+      })
     }
   }
 
@@ -163,29 +198,43 @@ export class KmsClient {
    * @returns {Promise<object>} The key description.
    */
   async getKeyDescription({
-    keyId, capability, invocationSigner, useCache = true
-  }) {
-    _assert(invocationSigner, 'invocationSigner', 'object');
+    keyId,
+    capability,
+    invocationSigner,
+    useCache = true
+  }: {
+    keyId?: string
+    capability?: any
+    invocationSigner?: any
+    useCache?: boolean
+  }): Promise<any> {
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url: string | undefined
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      _assert(keyId, 'keyId', 'string');
-      capability = _getRootZcapId({keyId});
+      _assert(keyId, 'keyId', 'string')
+      capability = _getRootZcapId({ keyId })
     }
 
-    if(!useCache) {
-      return this._getUncachedKeyDescription(
-        {url, capability, invocationSigner});
+    if (!useCache) {
+      return this._getUncachedKeyDescription({
+        url,
+        capability,
+        invocationSigner
+      })
     }
 
     return KEY_DESCRIPTION_CACHE.memoize({
-      key: JSON.stringify(
-        [url, capability.id || capability, invocationSigner.id]),
-      fn: () => this._getUncachedKeyDescription(
-        {url, capability, invocationSigner})
-    });
+      key: JSON.stringify([
+        url,
+        capability.id || capability,
+        invocationSigner.id
+      ]),
+      fn: () =>
+        this._getUncachedKeyDescription({ url, capability, invocationSigner })
+    })
   }
 
   /**
@@ -202,59 +251,74 @@ export class KmsClient {
    *
    * @returns {Promise<object>} Resolves once the operation completes.
    */
-  async revokeCapability({capabilityToRevoke, capability, invocationSigner}) {
-    _assert(capabilityToRevoke, 'capabilityToRevoke', 'object');
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async revokeCapability({
+    capabilityToRevoke,
+    capability,
+    invocationSigner
+  }: {
+    capabilityToRevoke: any
+    capability?: any
+    invocationSigner?: any
+  }): Promise<void> {
+    _assert(capabilityToRevoke, 'capabilityToRevoke', 'object')
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    let {keystoreId} = this;
-    if(!keystoreId && !capability) {
+    let { keystoreId } = this
+    if (!keystoreId && !capability) {
       // since no `keystoreId` was set and no `capability` with an invocation
       // target that can be parsed was given, get the keystore ID from the
       // capability that is to be revoked -- presuming it is a WebKMS key (if
       // revoking any other capability, the `keystoreId` must be set or a
       // `capability` passed to invoke)
-      const invocationTarget = KmsClient._getInvocationTarget(
-        {capability: capabilityToRevoke});
-      const idx = invocationTarget.lastIndexOf('/keys/');
-      if(idx === -1) {
+      const invocationTarget = KmsClient._getInvocationTarget({
+        capability: capabilityToRevoke
+      })
+      const idx = invocationTarget.lastIndexOf('/keys/')
+      if (idx === -1) {
         throw new Error(
-          `Invalid WebKMS key invocation target (${invocationTarget}).`);
+          `Invalid WebKMS key invocation target (${invocationTarget}).`
+        )
       }
-      keystoreId = invocationTarget.substr(0, idx);
+      keystoreId = invocationTarget.substr(0, idx)
     }
 
-    const revokePath = `${keystoreId}/zcaps/revocations`;
-    const url = KmsClient._getInvocationTarget({capability}) ||
-      `${revokePath}/${encodeURIComponent(capabilityToRevoke.id)}`;
-    if(!capability) {
-      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`;
+    const revokePath = `${keystoreId}/zcaps/revocations`
+    const url =
+      KmsClient._getInvocationTarget({ capability }) ||
+      `${revokePath}/${encodeURIComponent(capabilityToRevoke.id)}`
+    if (!capability) {
+      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders,
-        json: capabilityToRevoke, capability, invocationSigner,
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: capabilityToRevoke,
+        capability,
+        invocationSigner,
         capabilityAction: 'write'
-      });
+      })
 
       // send request
-      const {agent} = this;
-      await httpClient.post(url, {agent, headers, json: capabilityToRevoke});
-    } catch(e) {
-      let cause;
-      if(e.status === 409) {
-        cause = new Error('Duplicate error.');
-        cause.name = 'DuplicateError';
-        cause.cause = e;
+      const { agent } = this
+      await httpClient.post(url, { agent, headers, json: capabilityToRevoke })
+    } catch (e: any) {
+      let cause
+      if (e.status === 409) {
+        cause = new Error('Duplicate error.')
+        cause.name = 'DuplicateError'
+        cause.cause = e
       } else {
-        cause = e;
+        cause = e
       }
 
       _handleClientError({
         message: 'Error revoking zCap.',
         notFoundMessage: 'zCap not found.',
         cause
-      });
+      })
     }
   }
 
@@ -274,43 +338,60 @@ export class KmsClient {
    *
    * @returns {Promise<Uint8Array>} The wrapped key bytes.
    */
-  async wrapKey({kekId, unwrappedKey, capability, invocationSigner}) {
-    _assert(kekId, 'kekId', 'string');
-    _assert(unwrappedKey, 'unwrappedKey', 'Uint8Array');
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async wrapKey({
+    kekId,
+    unwrappedKey,
+    capability,
+    invocationSigner
+  }: {
+    kekId?: string
+    unwrappedKey: Uint8Array
+    capability?: any
+    invocationSigner?: any
+  }): Promise<Uint8Array> {
+    _assert(kekId, 'kekId', 'string')
+    _assert(unwrappedKey, 'unwrappedKey', 'Uint8Array')
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
     const operation = {
       type: 'WrapKeyOperation',
       invocationTarget: kekId,
       unwrappedKey: base64url.encode(unwrappedKey)
-    };
+    }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = kekId;
-      capability = _getRootZcapId({keyId: kekId});
+      url = kekId
+      capability = _getRootZcapId({ keyId: kekId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'wrapKey'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'wrapKey'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      return base64url.decode(result.data.wrappedKey);
-    } catch(e) {
+        agent,
+        headers,
+        json: operation
+      })
+      return base64url.decode(result.data.wrappedKey)
+    } catch (e: any) {
       _handleClientError({
         message: 'Error wrapping key.',
         notFoundMessage: 'Key encryption key not found.',
         cause: e
-      });
+      })
     }
   }
 
@@ -331,51 +412,68 @@ export class KmsClient {
    * @returns {Promise<Uint8Array|null>} Resolves to the unwrapped key material
    *   or null if the unwrapping failed because the key did not match.
    */
-  async unwrapKey({kekId, wrappedKey, capability, invocationSigner}) {
-    _assert(kekId, 'kekId', 'string');
-    _assert(wrappedKey, 'wrappedKey', ['string', 'Uint8Array']);
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async unwrapKey({
+    kekId,
+    wrappedKey,
+    capability,
+    invocationSigner
+  }: {
+    kekId?: string
+    wrappedKey: Uint8Array | string
+    capability?: any
+    invocationSigner?: any
+  }): Promise<Uint8Array | null> {
+    _assert(kekId, 'kekId', 'string')
+    _assert(wrappedKey, 'wrappedKey', ['string', 'Uint8Array'])
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    if(wrappedKey instanceof Uint8Array) {
+    if (wrappedKey instanceof Uint8Array) {
       // base64url-encode wrappedKey for transport
-      wrappedKey = base64url.encode(wrappedKey);
+      wrappedKey = base64url.encode(wrappedKey)
     }
 
     const operation = {
       type: 'UnwrapKeyOperation',
       invocationTarget: kekId,
       wrappedKey
-    };
+    }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = kekId;
-      capability = _getRootZcapId({keyId: kekId});
+      url = kekId
+      capability = _getRootZcapId({ keyId: kekId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'unwrapKey'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'unwrapKey'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      if(result.data.unwrappedKey === null) {
-        return null;
+        agent,
+        headers,
+        json: operation
+      })
+      if (result.data.unwrappedKey === null) {
+        return null
       }
-      return base64url.decode(result.data.unwrappedKey);
-    } catch(e) {
+      return base64url.decode(result.data.unwrappedKey)
+    } catch (e: any) {
       _handleClientError({
         message: 'Error unwrapping key.',
         notFoundMessage: 'Key encryption key not found.',
         cause: e
-      });
+      })
     }
   }
 
@@ -397,42 +495,59 @@ export class KmsClient {
    *
    * @returns {Promise<Uint8Array>} The signature.
    */
-  async sign({keyId, data, capability, invocationSigner}) {
-    _assert(keyId, 'keyId', 'string');
-    _assert(data, 'data', 'Uint8Array');
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async sign({
+    keyId,
+    data,
+    capability,
+    invocationSigner
+  }: {
+    keyId?: string
+    data: Uint8Array
+    capability?: any
+    invocationSigner?: any
+  }): Promise<Uint8Array> {
+    _assert(keyId, 'keyId', 'string')
+    _assert(data, 'data', 'Uint8Array')
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
     const operation = {
       type: 'SignOperation',
       invocationTarget: keyId,
       verifyData: base64url.encode(data)
-    };
+    }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = keyId;
-      capability = _getRootZcapId({keyId});
+      url = keyId
+      capability = _getRootZcapId({ keyId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'sign'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'sign'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      return base64url.decode(result.data.signatureValue);
-    } catch(e) {
+        agent,
+        headers,
+        json: operation
+      })
+      return base64url.decode(result.data.signatureValue)
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "sign" operation.',
         cause: e
-      });
+      })
     }
   }
 
@@ -456,15 +571,27 @@ export class KmsClient {
    *
    * @returns {Promise<boolean>} `true` if verified, `false` if not.
    */
-  async verify({keyId, data, signature, capability, invocationSigner}) {
-    _assert(keyId, 'keyId', 'string');
-    _assert(data, 'data', 'Uint8Array');
-    _assert(signature, 'signature', ['string', 'Uint8Array']);
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async verify({
+    keyId,
+    data,
+    signature,
+    capability,
+    invocationSigner
+  }: {
+    keyId?: string
+    data: Uint8Array
+    signature: Uint8Array | string
+    capability?: any
+    invocationSigner?: any
+  }): Promise<boolean> {
+    _assert(keyId, 'keyId', 'string')
+    _assert(data, 'data', 'Uint8Array')
+    _assert(signature, 'signature', ['string', 'Uint8Array'])
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    if(signature instanceof Uint8Array) {
+    if (signature instanceof Uint8Array) {
       // base64url-encode signature for transport
-      signature = base64url.encode(signature);
+      signature = base64url.encode(signature)
     }
 
     const operation = {
@@ -472,33 +599,40 @@ export class KmsClient {
       invocationTarget: keyId,
       verifyData: base64url.encode(data),
       signatureValue: signature
-    };
+    }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = keyId;
-      capability = _getRootZcapId({keyId});
+      url = keyId
+      capability = _getRootZcapId({ keyId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'verify'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'verify'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      return result.data.verified;
-    } catch(e) {
+        agent,
+        headers,
+        json: operation
+      })
+      return result.data.verified
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "verify" operation.',
         cause: e
-      });
+      })
     }
   }
 
@@ -522,43 +656,60 @@ export class KmsClient {
    *
    * @returns {Promise<Uint8Array>} The shared secret bytes.
    */
-  async deriveSecret({keyId, publicKey, capability, invocationSigner}) {
-    _assert(keyId, 'keyId', 'string');
-    _assert(publicKey, 'publicKey', 'object');
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async deriveSecret({
+    keyId,
+    publicKey,
+    capability,
+    invocationSigner
+  }: {
+    keyId?: string
+    publicKey: any
+    capability?: any
+    invocationSigner?: any
+  }): Promise<Uint8Array> {
+    _assert(keyId, 'keyId', 'string')
+    _assert(publicKey, 'publicKey', 'object')
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
     const operation = {
       type: 'DeriveSecretOperation',
       invocationTarget: keyId,
       publicKey
-    };
+    }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = keyId;
-      capability = _getRootZcapId({keyId});
+      url = keyId
+      capability = _getRootZcapId({ keyId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: operation,
-        capability, invocationSigner, capabilityAction: 'deriveSecret'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: operation,
+        capability,
+        invocationSigner,
+        capabilityAction: 'deriveSecret'
+      })
 
       // send request
-      const {agent} = this;
+      const { agent } = this
       const result = await httpClient.post(url, {
-        agent, headers, json: operation
-      });
-      return base64url.decode(result.data.secret);
-    } catch(e) {
+        agent,
+        headers,
+        json: operation
+      })
+      return base64url.decode(result.data.secret)
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "deriveSecret" operation.',
         notFoundMessage: 'Key agreement key not found.',
         cause: e
-      });
+      })
     }
   }
 
@@ -576,37 +727,53 @@ export class KmsClient {
    *
    * @returns {Promise<object>} Resolves to the new keystore configuration.
    */
-  async updateKeystore({capability, config, invocationSigner}) {
-    const {keystoreId, agent} = this;
-    if(!(keystoreId || capability)) {
+  async updateKeystore({
+    capability,
+    config,
+    invocationSigner
+  }: {
+    capability?: any
+    config: any
+    invocationSigner?: any
+  }): Promise<any> {
+    const { keystoreId, agent } = this
+    if (!(keystoreId || capability)) {
       throw new TypeError(
         '"capability" is required if "keystoreId" was not provided ' +
-        'to the KmsClient constructor.');
+          'to the KmsClient constructor.'
+      )
     }
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = keystoreId;
-      capability = _getRootZcapId({keystoreId});
+      url = keystoreId
+      capability = _getRootZcapId({ keystoreId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: this.defaultHeaders, json: config,
-        capability, invocationSigner, capabilityAction: 'write'
-      });
+        url,
+        method: 'post',
+        headers: this.defaultHeaders,
+        json: config,
+        capability,
+        invocationSigner,
+        capabilityAction: 'write'
+      })
 
       // send request
       const result = await httpClient.post(url, {
-        agent, headers, json: config
-      });
-      return result.data;
-    } catch(e) {
+        agent,
+        headers,
+        json: config
+      })
+      return result.data
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "update keystore" operation.',
         cause: e
-      });
+      })
     }
   }
 
@@ -623,38 +790,49 @@ export class KmsClient {
    *
    * @returns {Promise<object>} Resolves to the configuration for the keystore.
    */
-  async getKeystore({capability, invocationSigner}) {
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async getKeystore({
+    capability,
+    invocationSigner
+  }: {
+    capability?: any
+    invocationSigner?: any
+  }): Promise<any> {
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    const {keystoreId, agent} = this;
-    if(!(keystoreId || capability)) {
+    const { keystoreId, agent } = this
+    if (!(keystoreId || capability)) {
       throw new TypeError(
         '"capability" is required if "keystoreId" was not provided ' +
-        'to the KmsClient constructor.');
+          'to the KmsClient constructor.'
+      )
     }
 
-    let url;
-    if(capability) {
-      url = KmsClient._getInvocationTarget({capability});
+    let url
+    if (capability) {
+      url = KmsClient._getInvocationTarget({ capability })
     } else {
-      url = keystoreId;
-      capability = _getRootZcapId({keystoreId});
+      url = keystoreId
+      capability = _getRootZcapId({ keystoreId })
     }
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'get', headers: this.defaultHeaders,
-        capability, invocationSigner, capabilityAction: 'read'
-      });
+        url,
+        method: 'get',
+        headers: this.defaultHeaders,
+        capability,
+        invocationSigner,
+        capabilityAction: 'read'
+      })
 
       // send request
-      const result = await httpClient.get(url, {agent, headers});
-      return result.data;
-    } catch(e) {
+      const result = await httpClient.get(url, { agent, headers })
+      return result.data
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "get keystore" operation.',
         cause: e
-      });
+      })
     }
   }
 
@@ -677,92 +855,126 @@ export class KmsClient {
    *   created keystore.
    */
   static async createKeystore({
-    url, config, capability, invocationSigner, httpsAgent,
-  } = {}) {
-    _assert(url, 'url', 'string');
-    _assert(config, 'config', 'object');
-    _assert(config.controller, 'config.controller', 'string');
-    _assert(invocationSigner, 'invocationSigner', 'object');
+    url,
+    config,
+    capability,
+    invocationSigner,
+    httpsAgent
+  }: {
+    url?: string
+    config?: any
+    capability?: any
+    invocationSigner?: any
+    httpsAgent?: any
+  } = {}): Promise<any> {
+    _assert(url, 'url', 'string')
+    _assert(config, 'config', 'object')
+    _assert(config.controller, 'config.controller', 'string')
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
-    if(capability) {
-      if(!url) {
-        url = KmsClient._getInvocationTarget({capability});
+    if (capability) {
+      if (!url) {
+        url = KmsClient._getInvocationTarget({ capability })
       }
     } else {
-      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`;
+      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
     }
 
-    let result;
+    let result
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'post', headers: DEFAULT_HEADERS, json: config,
-        capability, invocationSigner, capabilityAction: 'write'
-      });
+        url,
+        method: 'post',
+        headers: DEFAULT_HEADERS,
+        json: config,
+        capability,
+        invocationSigner,
+        capabilityAction: 'write'
+      })
 
-      const agent = httpsAgent || this.agent;
+      const agent = httpsAgent || (this as any).agent
       // send request
       result = await httpClient.post(url, {
-        agent, headers, json: config
-      });
-    } catch(e) {
+        agent,
+        headers,
+        json: config
+      })
+    } catch (e: any) {
       _handleClientError({
         message: 'Error during "create keystore" operation.',
         cause: e
-      });
+      })
     }
 
-    _assert(result.data, 'result.data', 'object');
-    _assert(result.data.id, 'result.data.id', 'string');
-    return result.data;
+    _assert(result.data, 'result.data', 'object')
+    _assert(result.data.id, 'result.data.id', 'string')
+    return result.data
   }
 
-  async _getUncachedKeyDescription({url, capability, invocationSigner}) {
-    _assert(invocationSigner, 'invocationSigner', 'object');
+  async _getUncachedKeyDescription({
+    url,
+    capability,
+    invocationSigner
+  }: {
+    url?: string
+    capability?: any
+    invocationSigner?: any
+  }): Promise<any> {
+    _assert(invocationSigner, 'invocationSigner', 'object')
 
     try {
       const headers = await signCapabilityInvocation({
-        url, method: 'get', headers: this.defaultHeaders,
-        capability, invocationSigner, capabilityAction: 'read'
-      });
+        url,
+        method: 'get',
+        headers: this.defaultHeaders,
+        capability,
+        invocationSigner,
+        capabilityAction: 'read'
+      })
 
       // send request
-      const {agent} = this;
-      const result = await httpClient.get(url, {agent, headers});
-      return result.data;
-    } catch(e) {
+      const { agent } = this
+      const result = await httpClient.get(url, { agent, headers })
+      return result.data
+    } catch (e: any) {
       _handleClientError({
         message: 'Error fetching key description.',
         notFoundMessage: 'Key description not found.',
         cause: e
-      });
+      })
     }
   }
 
-  static _getInvocationTarget({capability}) {
+  static _getInvocationTarget({ capability }: { capability?: any }): any {
     // no capability, so no invocation target
-    if(capability === undefined || capability === null) {
-      return null;
+    if (capability === undefined || capability === null) {
+      return null
     }
 
-    let invocationTarget;
-    if(typeof capability === 'string') {
-      if(!capability.startsWith(ZCAP_ROOT_PREFIX)) {
+    let invocationTarget
+    if (typeof capability === 'string') {
+      if (!capability.startsWith(ZCAP_ROOT_PREFIX)) {
         throw new Error(
-          'If "capability" is a string, it must be a root capability.');
+          'If "capability" is a string, it must be a root capability.'
+        )
       }
       invocationTarget = decodeURIComponent(
-        capability.substring(ZCAP_ROOT_PREFIX.length));
-    } else if(typeof capability === 'object') {
-      ({invocationTarget} = capability);
+        capability.substring(ZCAP_ROOT_PREFIX.length)
+      )
+    } else if (typeof capability === 'object') {
+      ;({ invocationTarget } = capability)
     }
 
-    if(!(typeof invocationTarget === 'string' &&
-      invocationTarget.startsWith('https://'))) {
+    if (!(
+      typeof invocationTarget === 'string' &&
+      invocationTarget.startsWith('https://')
+    )) {
       throw new TypeError(
-        '"invocationTarget" from capability must be an "https" URL.');
+        '"invocationTarget" from capability must be an "https" URL.'
+      )
     }
 
-    return invocationTarget;
+    return invocationTarget
   }
 }
 
@@ -773,55 +985,72 @@ export class KmsClient {
  * @param {string} [options.notFoundMessage] - Optional 'not found' message.
  */
 function _handleClientError({
-  message, cause, notFoundMessage = 'Key not found'
-}) {
-  let error;
-  const errorMessage = message.slice(0, -1);
-  if(cause.status === 404) {
+  message,
+  cause,
+  notFoundMessage = 'Key not found'
+}: {
+  message: string
+  cause: any
+  notFoundMessage?: string
+}): never {
+  let error: Error & { status?: number; data?: unknown }
+  const errorMessage = message.slice(0, -1)
+  if (cause.status === 404) {
     // e.g. 'Error getting key description: Key description not found'
-    error = new Error(`${errorMessage}: ${notFoundMessage}`);
-    error.status = 404;
+    error = new Error(`${errorMessage}: ${notFoundMessage}`)
+    error.status = 404
   } else {
-    error = new Error(`WebKMS client error: ${errorMessage}`);
-    if(cause.data) {
-      error.data = cause.data;
+    error = new Error(`WebKMS client error: ${errorMessage}`)
+    if (cause.data) {
+      error.data = cause.data
     }
-    if(cause.status) {
-      error.status = cause.status;
+    if (cause.status) {
+      error.status = cause.status
     }
   }
 
-  if(!error.message.endsWith('.')) {
-    error.message += '.';
+  if (!error.message.endsWith('.')) {
+    error.message += '.'
   }
 
-  error.cause = cause;
+  error.cause = cause
 
-  throw error;
+  throw error
 }
 
-function _assert(variable, name, types) {
-  if(!Array.isArray(types)) {
-    types = [types];
+function _assert(
+  variable: any,
+  name: string,
+  types: string | string[]
+): asserts variable {
+  if (!Array.isArray(types)) {
+    types = [types]
   }
-  const type = variable instanceof Uint8Array ? 'Uint8Array' : typeof variable;
-  if(!types.includes(type)) {
+  const type = variable instanceof Uint8Array ? 'Uint8Array' : typeof variable
+  if (!types.includes(type)) {
     throw new TypeError(
       `"${name}" must be ${types.length === 1 ? 'a' : 'one of'} ` +
-      `${types.join(', ')}.`);
+        `${types.join(', ')}.`
+    )
   }
 }
 
-function _getRootZcapId({keystoreId, keyId}) {
-  let suffix;
-  if(keyId) {
-    const idx = keyId.lastIndexOf('/keys/');
-    if(idx === -1) {
-      throw new Error(`Invalid WebKMS key ID (${keyId}).`);
+function _getRootZcapId({
+  keystoreId,
+  keyId
+}: {
+  keystoreId?: string
+  keyId?: string
+}): string {
+  let suffix
+  if (keyId) {
+    const idx = keyId.lastIndexOf('/keys/')
+    if (idx === -1) {
+      throw new Error(`Invalid WebKMS key ID (${keyId}).`)
     }
-    suffix = keyId.substr(0, idx);
+    suffix = keyId.substr(0, idx)
   } else {
-    suffix = keystoreId;
+    suffix = keystoreId
   }
-  return `${ZCAP_ROOT_PREFIX}${encodeURIComponent(suffix)}`;
+  return `${ZCAP_ROOT_PREFIX}${encodeURIComponent(suffix as string)}`
 }
