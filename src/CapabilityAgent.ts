@@ -1,8 +1,9 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
-import crypto from './crypto.js'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
+
+const { subtle } = globalThis.crypto
 
 export class CapabilityAgent {
   handle: string
@@ -154,7 +155,7 @@ async function _computeSaltedHash({
   )
   const algorithm = { name: 'SHA-256' }
   return new Uint8Array(
-    await crypto.subtle.digest(algorithm, toHash as Uint8Array<ArrayBuffer>)
+    await subtle.digest(algorithm, toHash as Uint8Array<ArrayBuffer>)
   )
 }
 
@@ -166,7 +167,7 @@ async function _keyFromSeedAndName({
   keyName: string
 }): Promise<{ signer: any; keyPair: any }> {
   const extractable = false
-  const hmacKey = await crypto.subtle.importKey(
+  const hmacKey = await subtle.importKey(
     'raw',
     seed as Uint8Array<ArrayBuffer>,
     { name: 'HMAC', hash: { name: 'SHA-256' } },
@@ -175,7 +176,7 @@ async function _keyFromSeedAndName({
   )
   const nameBuffer = _stringToUint8Array(keyName)
   const signature = new Uint8Array(
-    await crypto.subtle.sign(
+    await subtle.sign(
       hmacKey.algorithm,
       hmacKey,
       nameBuffer as Uint8Array<ArrayBuffer>

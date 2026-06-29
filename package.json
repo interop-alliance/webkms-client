@@ -13,9 +13,6 @@
     }
   },
   "module": "dist/index.js",
-  "browser": {
-    "./dist/crypto.js": "./dist/crypto-browser.js"
-  },
   "types": "dist/index.d.ts",
   "sideEffects": false,
   "files": [
