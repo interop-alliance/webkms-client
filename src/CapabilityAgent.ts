@@ -2,7 +2,7 @@
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
 import crypto from './crypto.js'
-import { Ed25519VerificationKey2020 } from '@digitalbazaar/ed25519-verification-key-2020'
+import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
 
 export class CapabilityAgent {
   handle: string
@@ -33,8 +33,8 @@ export class CapabilityAgent {
    *   create the key.
    * @param {object} options.signer - An API with an `id` property, a
    *   `type` property, and a `sign` function.
-   * @typedef Ed25519VerificationKey2020
-   * @param {Ed25519VerificationKey2020} options.keyPair - Underlying key pair.
+   * @typedef Ed25519VerificationKey
+   * @param {Ed25519VerificationKey} options.keyPair - Underlying key pair.
    *
    * @returns {CapabilityAgent} The new instance.
    */
@@ -182,12 +182,15 @@ async function _keyFromSeedAndName({
     )
   )
   // generate Ed25519 key from HMAC signature
-  const keyPair = await Ed25519VerificationKey2020.generate({ seed: signature })
+  const keyPair = await Ed25519VerificationKey.generate({ seed: signature })
 
-  // create key and specify ID for key using fingerprint
-  const signer = keyPair.signer()
+  // specify ID for key using fingerprint; must be set before `signer()`
   const fingerprint = keyPair.fingerprint()
-  signer.id = `did:key:${fingerprint}#${fingerprint}`
+  keyPair.id = `did:key:${fingerprint}#${fingerprint}`
+
+  // create signer for the key
+  const signer: any = keyPair.signer()
+  signer.id = keyPair.id
   signer.type = keyPair.type
   return { signer, keyPair }
 }

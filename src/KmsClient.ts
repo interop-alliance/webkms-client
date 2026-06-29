@@ -1,10 +1,10 @@
 /*!
  * Copyright (c) 2019-2025 Digital Bazaar, Inc. All rights reserved.
  */
-import * as base64url from 'base64url-universal'
-import { DEFAULT_HEADERS, httpClient } from '@digitalbazaar/http-client'
-import { LruCache } from '@digitalbazaar/lru-memoize'
-import { signCapabilityInvocation } from '@digitalbazaar/http-signature-zcap-invoke'
+import { base64urlnopad } from '@scure/base'
+import { DEFAULT_HEADERS, httpClient } from '@interop/http-client'
+import { LruCache } from '@interop/lru-memoize'
+import { signCapabilityInvocation } from '@interop/http-signature-zcap-invoke'
 
 const ZCAP_ROOT_PREFIX = 'urn:zcap:root:'
 
@@ -356,7 +356,7 @@ export class KmsClient {
     const operation = {
       type: 'WrapKeyOperation',
       invocationTarget: kekId,
-      unwrappedKey: base64url.encode(unwrappedKey)
+      unwrappedKey: base64urlnopad.encode(unwrappedKey)
     }
 
     let url
@@ -385,7 +385,7 @@ export class KmsClient {
         headers,
         json: operation
       })
-      return base64url.decode(result.data.wrappedKey)
+      return base64urlnopad.decode((result.data as { wrappedKey: string }).wrappedKey)
     } catch (e: any) {
       _handleClientError({
         message: 'Error wrapping key.',
@@ -429,7 +429,7 @@ export class KmsClient {
 
     if (wrappedKey instanceof Uint8Array) {
       // base64url-encode wrappedKey for transport
-      wrappedKey = base64url.encode(wrappedKey)
+      wrappedKey = base64urlnopad.encode(wrappedKey)
     }
 
     const operation = {
@@ -464,10 +464,11 @@ export class KmsClient {
         headers,
         json: operation
       })
-      if (result.data.unwrappedKey === null) {
+      const { unwrappedKey } = result.data as { unwrappedKey: string | null }
+      if (unwrappedKey === null) {
         return null
       }
-      return base64url.decode(result.data.unwrappedKey)
+      return base64urlnopad.decode(unwrappedKey)
     } catch (e: any) {
       _handleClientError({
         message: 'Error unwrapping key.',
@@ -513,7 +514,7 @@ export class KmsClient {
     const operation = {
       type: 'SignOperation',
       invocationTarget: keyId,
-      verifyData: base64url.encode(data)
+      verifyData: base64urlnopad.encode(data)
     }
 
     let url
@@ -542,7 +543,9 @@ export class KmsClient {
         headers,
         json: operation
       })
-      return base64url.decode(result.data.signatureValue)
+      return base64urlnopad.decode(
+        (result.data as { signatureValue: string }).signatureValue
+      )
     } catch (e: any) {
       _handleClientError({
         message: 'Error during "sign" operation.',
@@ -591,13 +594,13 @@ export class KmsClient {
 
     if (signature instanceof Uint8Array) {
       // base64url-encode signature for transport
-      signature = base64url.encode(signature)
+      signature = base64urlnopad.encode(signature)
     }
 
     const operation = {
       type: 'VerifyOperation',
       invocationTarget: keyId,
-      verifyData: base64url.encode(data),
+      verifyData: base64urlnopad.encode(data),
       signatureValue: signature
     }
 
@@ -627,7 +630,7 @@ export class KmsClient {
         headers,
         json: operation
       })
-      return result.data.verified
+      return (result.data as { verified: boolean }).verified
     } catch (e: any) {
       _handleClientError({
         message: 'Error during "verify" operation.',
@@ -703,7 +706,7 @@ export class KmsClient {
         headers,
         json: operation
       })
-      return base64url.decode(result.data.secret)
+      return base64urlnopad.decode((result.data as { secret: string }).secret)
     } catch (e: any) {
       _handleClientError({
         message: 'Error during "deriveSecret" operation.',
@@ -879,6 +882,9 @@ export class KmsClient {
     } else {
       capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
     }
+    // `url` is now resolved to a string (asserted above or derived from the
+    // capability's invocation target).
+    _assert(url, 'url', 'string')
 
     let result
     try {
@@ -907,7 +913,7 @@ export class KmsClient {
     }
 
     _assert(result.data, 'result.data', 'object')
-    _assert(result.data.id, 'result.data.id', 'string')
+    _assert((result.data as { id?: unknown }).id, 'result.data.id', 'string')
     return result.data
   }
 
@@ -923,8 +929,10 @@ export class KmsClient {
     _assert(invocationSigner, 'invocationSigner', 'object')
 
     try {
+      // `url` may be undefined here (e.g. the `keyId`-only path of
+      // `getKeyDescription`); preserve that pass-through behavior.
       const headers = await signCapabilityInvocation({
-        url,
+        url: url as string,
         method: 'get',
         headers: this.defaultHeaders,
         capability,
@@ -934,7 +942,7 @@ export class KmsClient {
 
       // send request
       const { agent } = this
-      const result = await httpClient.get(url, { agent, headers })
+      const result = await httpClient.get(url as string, { agent, headers })
       return result.data
     } catch (e: any) {
       _handleClientError({
