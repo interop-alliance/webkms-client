@@ -96,9 +96,9 @@ export class CapabilityAgent {
     if (typeof handle !== 'string') {
       throw new TypeError('"handle" must be a string.')
     }
-    if (typeof secret === 'string') {
-      secret = _stringToUint8Array(secret)
-    } else if (!(secret instanceof Uint8Array)) {
+    // do not pre-encode a string secret here; `_computeSaltedHash` needs the
+    // original type to hash binary secrets without a lossy UTF-8 round-trip
+    if (typeof secret !== 'string' && !(secret instanceof Uint8Array)) {
       throw new TypeError('"secret" must be a Uint8Array or a string.')
     }
 
@@ -149,10 +149,24 @@ async function _computeSaltedHash({
 }): Promise<Uint8Array> {
   // compute salted SHA-256 hash
   salt = _uint8ArrayToString(salt)
-  secret = _uint8ArrayToString(secret)
-  const toHash = _stringToUint8Array(
-    `${encodeURIComponent(salt)}:${encodeURIComponent(secret)}`
-  )
+  let toHash: Uint8Array
+  if (typeof secret === 'string') {
+    // normalize the string exactly as the prior string -> bytes -> string path
+    // did, then percent-encode, so the hashed bytes are unchanged for string
+    // secrets
+    secret = _uint8ArrayToString(_stringToUint8Array(secret))
+    toHash = _stringToUint8Array(
+      `${encodeURIComponent(salt)}:${encodeURIComponent(secret)}`
+    )
+  } else {
+    // hash the raw secret bytes directly to avoid a lossy UTF-8 round-trip that
+    // would collapse distinct binary secrets to the same seed; encodeURIComponent
+    // percent-encodes ':' so the encoded salt prefix is an unambiguous separator
+    const prefix = _stringToUint8Array(`${encodeURIComponent(salt)}:`)
+    toHash = new Uint8Array(prefix.length + secret.length)
+    toHash.set(prefix)
+    toHash.set(secret, prefix.length)
+  }
   const algorithm = { name: 'SHA-256' }
   return new Uint8Array(
     await subtle.digest(algorithm, toHash as Uint8Array<ArrayBuffer>)
