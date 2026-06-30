@@ -1,6 +1,6 @@
 # webkms-client ChangeLog
 
-## 14.4.2 - TBD
+## 14.4.2 - 2026-06-30
 
 ### Fixed
 

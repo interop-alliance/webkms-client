@@ -79,7 +79,7 @@ export class CapabilityAgent {
    *   that is mixed with it like a salt to produce a seed, and, if `cache` is
    *   true, will be used to identify the seed in the cache. A common use for
    *   this field is to use the account ID for a user in a system.
-   * @param {string} [options.keyName='root'] - An optional name to use to
+   * @param {string} [options.keyName='default'] - An optional name to use to
    *   generate the key.
    *
    * @returns {Promise<CapabilityAgent>} The new CapabilityAgent instance.
