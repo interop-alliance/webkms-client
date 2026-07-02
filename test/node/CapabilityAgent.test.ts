@@ -9,7 +9,9 @@ describe('CapabilityAgent.fromSecret', () => {
     // Golden did:key values captured from the implementation BEFORE the binary
     // secret hashing fix. String-secret derivation must remain byte-identical,
     // so these values must never change.
-    const goldens: Array<[string, Parameters<typeof CapabilityAgent.fromSecret>[0]]> = [
+    const goldens: Array<
+      [string, Parameters<typeof CapabilityAgent.fromSecret>[0]]
+    > = [
       [
         'did:key:z6MkiS4sLV7Z3bWoV8PtgrrwDy41H2PciiWYY6jXwCc7RmHh',
         { secret: 'correct horse battery staple', handle: 'urn:example:alice' }

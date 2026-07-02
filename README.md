@@ -3,7 +3,8 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/interop-alliance/webkms-client/ci.yml)](https://github.com/interop-alliance/webkms-client/actions/workflows/ci.yml)
 [![NPM Version](https://img.shields.io/npm/v/@interop/webkms-client.svg)](https://npm.im/@interop/webkms-client)
 
-> A TypeScript/JavaScript WebKMS client library for Node.js, browser and React Native.
+> A TypeScript/JavaScript WebKMS client library for Node.js, browser and React
+> Native.
 
 ## Table of Contents
 

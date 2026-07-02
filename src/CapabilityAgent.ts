@@ -2,14 +2,15 @@
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
+import type { InvocationSigner } from './types.js'
 
 const { subtle } = globalThis.crypto
 
 export class CapabilityAgent {
   handle: string
   id: string
-  signer: any
-  _keyPair: any
+  signer: InvocationSigner
+  _keyPair: Ed25519VerificationKey
 
   /**
    * Creates a new instance of a CapabilityAgent that uses a KmsClient
@@ -45,12 +46,12 @@ export class CapabilityAgent {
     keyPair
   }: {
     handle: string
-    signer: any
-    keyPair: any
+    signer: InvocationSigner
+    keyPair: Ed25519VerificationKey
   }) {
     this.handle = handle
     // signer is a did:key
-    this.id = signer.id.split('#')[0]
+    this.id = signer.id.split('#')[0] ?? signer.id
     this.signer = signer
     // reference to core key pair used for invocation signing
     this._keyPair = keyPair
@@ -63,7 +64,7 @@ export class CapabilityAgent {
    * @returns {object} An API with an `id` property, a `type` property, and a
    *   `sign` function.
    */
-  getSigner(): any {
+  getSigner(): InvocationSigner {
     return this.signer
   }
 
@@ -179,7 +180,7 @@ async function _keyFromSeedAndName({
 }: {
   seed: Uint8Array
   keyName: string
-}): Promise<{ signer: any; keyPair: any }> {
+}): Promise<{ signer: InvocationSigner; keyPair: Ed25519VerificationKey }> {
   const extractable = false
   const hmacKey = await subtle.importKey(
     'raw',
@@ -204,7 +205,7 @@ async function _keyFromSeedAndName({
   keyPair.id = `did:key:${fingerprint}#${fingerprint}`
 
   // create signer for the key
-  const signer: any = keyPair.signer()
+  const signer = keyPair.signer() as InvocationSigner
   signer.id = keyPair.id
   signer.type = keyPair.type
   return { signer, keyPair }

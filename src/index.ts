@@ -14,3 +14,9 @@ export { Kek } from './Kek.js'
 export { KeyAgreementKey } from './KeyAgreementKey.js'
 export { KeystoreAgent } from './KeystoreAgent.js'
 export { KmsClient } from './KmsClient.js'
+export type {
+  Capability,
+  InvocationSigner,
+  KeyDescription,
+  KeystoreConfig
+} from './types.js'

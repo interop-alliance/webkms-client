@@ -2,6 +2,47 @@
 
 ## 14.5.0 - TBD
 
+### Fixed
+
+- **`Hmac.verify()` no longer caches results by data alone.** The memoize key
+  previously omitted the signature, so within the cache TTL a forged signature
+  for already-verified data was accepted from the cache (and a valid signature
+  after a failed verification was wrongly rejected). The cache key now includes
+  the signature.
+- Base64 decoding of KMS response fields (`wrappedKey`, `unwrappedKey`,
+  `signatureValue`, `secret`) now tolerates padded base64url and standard
+  (`+`/`/` alphabet) base64 in addition to unpadded base64url. The strict
+  decoder adopted in the `@scure/base` migration threw on such responses.
+  Requests still emit unpadded base64url.
+- `getKeyDescription({keyId})` (no capability) now targets the key's URL; it
+  previously left the request URL undefined, so
+  `AsymmetricKey.getKeyDescription()` on a key constructed from an `id` alone
+  always threw `Invalid URL`. This also disambiguates the key description cache
+  key per key.
+- `KeystoreAgent.generateKey` can now resolve a key class for both documented
+  call shapes: `{category}` alone (e.g. `{category: 'kek'}`) uses the
+  recommended key type for that category, and a custom `type` URL (e.g.
+  `urn:webkms:multikey:P-256`) is supported when passed together with
+  `category`. A custom `type` without `category`, an unknown category, or a call
+  with neither now throw clear errors.
+- Malformed or empty KMS responses now throw clear, attributed errors
+  (`Invalid WebKMS server response: ...`) instead of opaque decode/destructure
+  errors: `wrapKey`/`unwrapKey`/`sign`/`deriveSecret` validate the expected
+  field before decoding, `verify` requires a boolean `verified`, and
+  `generateKey` requires `keyId` and `keyDescription`.
+- `AsymmetricKey.getAlgorithm()` called without arguments (or without a
+  `keyDescription`) returns `undefined` instead of throwing.
+- `generateKey`'s `maxCapabilityChainLength` validation now rejects
+  non-integers, as its error message always claimed.
+- `Hmac`/`Kek` KMS operations now target `kmsId` (the key's ID with the KMS)
+  instead of the public `id`, consistent with `AsymmetricKey` and
+  `KeyAgreementKey`; `Kek` now accepts and stores a `kmsId` (default:
+  `options.id`). No behavior change unless a public alias differs from the KMS
+  id.
+- If the server returns an unrecognized key `type` after
+  `KeystoreAgent.generateKey` created a key, the error now states that the key
+  exists server-side instead of surfacing a bare constructor error.
+
 ### Changed
 
 - Relax the `https:`-only capability invocation-target check
@@ -9,6 +50,28 @@
   loopback hosts (`localhost` / `127.0.0.1` / `[::1]`). Delegated zcaps can now
   be invoked against a KMS on a local development server; all non-loopback
   targets still require `https:`.
+- `Hmac` no longer schedules a self-rescheduling cache-prune timer; cache
+  entries expire via the LRU cache's own TTL. Idle `Hmac` instances no longer
+  hold the Node.js event loop open (for up to 3s) after a cached operation.
+- Collapsed the near-identical `KmsClient` method bodies into shared
+  `_invoke`/`_resolveTarget` helpers; the 409-to-`DuplicateError` mapping now
+  lives in the shared error handler. No changes to request or error shapes.
+- The four key classes now share one `fromCapability` implementation
+  (`src/keyHelpers.ts`). `Hmac.fromCapability`/`Kek.fromCapability` now prefer
+  the key description's `id` (falling back to the capability's invocation
+  target, the previous behavior) for the public `id`, matching the other key
+  classes.
+- `AsymmetricKey.getKeyDescription()` clones via `structuredClone` instead of
+  `JSON.parse(JSON.stringify(...))`.
+- Replaced pervasive `any` types with real interfaces -- `Capability`,
+  `InvocationSigner`, `KeyDescription`, `KeystoreConfig`, exported from the
+  package root -- and typed method returns.
+- `KmsClient.createKeystore` dropped dead code: the capability-based `url`
+  derivation branch (unreachable because `url` is asserted first) and the
+  `this.agent` fallback (always undefined in a static method).
+- Operations invoked without a `capability` now throw a clear `TypeError` when
+  the fallback key/keystore ID is also missing, instead of building a
+  `urn:zcap:root:undefined` capability and failing at the network layer.
 
 ## 14.4.2 - 2026-06-30
 

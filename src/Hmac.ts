@@ -2,8 +2,10 @@
  * Copyright (c) 2019-2025 Digital Bazaar, Inc. All rights reserved.
  */
 import { base64urlnopad } from '@scure/base'
+import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
 import { LruCache } from '@interop/lru-memoize'
+import type { Capability, InvocationSigner } from './types.js'
 
 const CACHE_MAX = 100
 const CACHE_TTL = 3000
@@ -16,11 +18,10 @@ export class Hmac {
   kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner: any
+  invocationSigner?: InvocationSigner
   kmsClient: KmsClient
-  capability: any
+  capability?: Capability
   _cache: LruCache
-  _pruneCacheTimer: any
 
   /**
    * Creates a new instance of an HMAC.
@@ -50,16 +51,11 @@ export class Hmac {
     id?: string
     kmsId?: string
     type?: string
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
   }) {
-    if (capability) {
-      throw new Error(
-        '"capability" parameter not allowed in constructor; ' +
-          'use ".fromCapability" instead.'
-      )
-    }
+    assertNoCapability(capability)
     this.id = id
     this.kmsId = kmsId
     this.type = type
@@ -70,12 +66,14 @@ export class Hmac {
     this.invocationSigner = invocationSigner
     this.kmsClient = kmsClient
     this.capability = undefined
+    // entries expire via the cache's own `ttl` (evicted lazily on access);
+    // no prune timer is scheduled, so idle instances do not hold the Node
+    // event loop open
     this._cache = new LruCache({
       max: CACHE_MAX,
       ttl: CACHE_TTL,
       updateAgeOnGet: true
     })
-    this._pruneCacheTimer = null
   }
 
   /**
@@ -98,12 +96,12 @@ export class Hmac {
     useCache?: boolean
   }): Promise<Uint8Array> {
     if (!useCache) {
-      return this._uncachedSign({ data, useCache })
+      return this._uncachedSign({ data })
     }
 
     return this._cache.memoize({
       key: `sign-${base64urlnopad.encode(data)}`,
-      fn: () => this._uncachedSign({ data, useCache })
+      fn: () => this._uncachedSign({ data })
     })
   }
 
@@ -131,12 +129,18 @@ export class Hmac {
     useCache?: boolean
   }): Promise<boolean> {
     if (!useCache) {
-      return this._uncachedVerify({ data, signature, useCache })
+      return this._uncachedVerify({ data, signature })
     }
 
+    // the cache key must cover the signature as well: verifying the same
+    // data against a different signature must not reuse a cached result
+    const encodedSignature =
+      typeof signature === 'string'
+        ? signature
+        : base64urlnopad.encode(signature)
     return this._cache.memoize({
-      key: `verify-${base64urlnopad.encode(data)}`,
-      fn: () => this._uncachedVerify({ data, signature, useCache })
+      key: `verify-${base64urlnopad.encode(data)}-${encodedSignature}`,
+      fn: () => this._uncachedVerify({ data, signature })
     })
   }
 
@@ -157,85 +161,37 @@ export class Hmac {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
   }): Promise<Hmac> {
-    // get key description via capability
-    const keyDescription = await kmsClient.getKeyDescription({
+    return fromCapability({
+      KeyClass: Hmac,
       capability,
-      invocationSigner
+      invocationSigner,
+      kmsClient
     })
-
-    // build asymmetric key from description
-    const id = KmsClient._getInvocationTarget({ capability })
-    const { type } = keyDescription
-    const key = new Hmac({ id, type, kmsClient, invocationSigner })
-    key.capability = capability
-    return key
   }
 
-  _pruneCache(): void {
-    this._cache.cache.purgeStale()
-    if (this._cache.cache.size === 0) {
-      // cache is empty, do not schedule pruning
-      this._pruneCacheTimer = null
-    } else {
-      // schedule another run
-      this._schedulePruning()
-    }
-  }
-
-  _schedulePruning(): void {
-    this._pruneCacheTimer = setTimeout(() => this._pruneCache(), CACHE_TTL)
-  }
-
-  async _uncachedSign({
-    data,
-    useCache
-  }: {
-    data: Uint8Array
-    useCache?: boolean
-  }): Promise<Uint8Array> {
-    const { id: keyId, kmsClient, capability, invocationSigner } = this
-    const promise = kmsClient.sign({
-      keyId,
-      data,
-      capability,
-      invocationSigner
-    })
-
-    // schedule cache pruning if not already scheduled
-    if (useCache && !this._pruneCacheTimer) {
-      this._schedulePruning()
-    }
-
-    return promise
+  async _uncachedSign({ data }: { data: Uint8Array }): Promise<Uint8Array> {
+    const { kmsId: keyId, kmsClient, capability, invocationSigner } = this
+    return kmsClient.sign({ keyId, data, capability, invocationSigner })
   }
 
   async _uncachedVerify({
     data,
-    signature,
-    useCache
+    signature
   }: {
     data: Uint8Array
     signature: Uint8Array | string
-    useCache?: boolean
   }): Promise<boolean> {
-    const { id: keyId, kmsClient, capability, invocationSigner } = this
-    const promise = kmsClient.verify({
+    const { kmsId: keyId, kmsClient, capability, invocationSigner } = this
+    return kmsClient.verify({
       keyId,
       data,
       signature,
       capability,
       invocationSigner
     })
-
-    // schedule cache pruning if not already scheduled
-    if (useCache && !this._pruneCacheTimer) {
-      this._schedulePruning()
-    }
-
-    return promise
   }
 }

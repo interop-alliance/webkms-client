@@ -1,7 +1,9 @@
 /*!
  * Copyright (c) 2019-2024 Digital Bazaar, Inc. All rights reserved.
  */
+import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
+import type { Capability, InvocationSigner, KeyDescription } from './types.js'
 
 /**
  * Note: Maps base58-encoded multikey header values to an appropriate JOSE
@@ -31,10 +33,10 @@ export class AsymmetricKey {
   kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner: any
+  invocationSigner?: InvocationSigner
   kmsClient: KmsClient
-  capability: any
-  _keyDescription: any
+  capability?: Capability
+  _keyDescription?: KeyDescription
 
   /**
    * Creates a new instance of an asymmetric key.
@@ -69,17 +71,12 @@ export class AsymmetricKey {
     id?: string
     kmsId?: string
     type?: string
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
-    keyDescription?: any
+    keyDescription?: KeyDescription
   }) {
-    if (capability) {
-      throw new Error(
-        '"capability" parameter not allowed in constructor; ' +
-          'use ".fromCapability" instead.'
-      )
-    }
+    assertNoCapability(capability)
     this.id = id
     this.kmsId = kmsId
     this.type = type
@@ -158,7 +155,7 @@ export class AsymmetricKey {
    * @returns {Promise<object>} The key description.
    */
   // eslint-disable-next-line no-empty-pattern
-  async getKeyDescription({} = {}): Promise<object> {
+  async getKeyDescription({} = {}): Promise<KeyDescription> {
     if (!this._keyDescription) {
       const { kmsId: keyId, kmsClient, capability, invocationSigner } = this
       const keyDescription = await kmsClient.getKeyDescription({
@@ -171,23 +168,27 @@ export class AsymmetricKey {
       this.algorithm = AsymmetricKey.getAlgorithm({ keyDescription })
     }
     // return clone of cached description
-    return JSON.parse(JSON.stringify(this._keyDescription))
+    return structuredClone(this._keyDescription)
   }
 
   /**
    * Gets the JOSE algorithm from a key description.
    *
    * @param {object} options - The options to use.
-   * @param {object} options.keyDescription - A key description.
+   * @param {object} [options.keyDescription] - A key description.
    *
-   * @returns {string} The resulting algorithm.
+   * @returns {string|undefined} The resulting algorithm, or `undefined` if
+   *   no key description (or no supported public key) was given.
    */
-  static getAlgorithm({ keyDescription }: { keyDescription?: any } = {}):
-    string | undefined {
-    const { publicKeyMultibase } = keyDescription
+  static getAlgorithm({
+    keyDescription
+  }: { keyDescription?: KeyDescription } = {}): string | undefined {
     // presently all supported key types will have a base58-multikey-header
     // value that is only 4 characters long
-    const prefix = publicKeyMultibase?.slice(0, 4)
+    const prefix = keyDescription?.publicKeyMultibase?.slice(0, 4)
+    if (prefix === undefined) {
+      return undefined
+    }
     return BASE58_MULTIKEY_HEADER_TO_JOSE.get(prefix)
   }
 
@@ -209,25 +210,15 @@ export class AsymmetricKey {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
   }): Promise<AsymmetricKey> {
-    // get key description via capability
-    const keyDescription = await kmsClient.getKeyDescription({
+    return fromCapability({
+      KeyClass: AsymmetricKey,
       capability,
-      invocationSigner
+      invocationSigner,
+      kmsClient
     })
-
-    // build asymmetric key from description
-    const kmsId = KmsClient._getInvocationTarget({ capability })
-    const key = new AsymmetricKey({
-      kmsId,
-      keyDescription,
-      kmsClient,
-      invocationSigner
-    })
-    key.capability = capability
-    return key
   }
 }
