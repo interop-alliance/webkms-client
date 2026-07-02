@@ -1,9 +1,9 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
 import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
-import type { Capability, InvocationSigner } from './types.js'
 
 const JOSE_ALGORITHM_MAP = {
   AesKeyWrappingKey2019: 'A256KW'
@@ -14,9 +14,9 @@ export class Kek {
   kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner?: InvocationSigner
+  invocationSigner?: ISigner
   kmsClient: KmsClient
-  capability?: Capability
+  capability?: IZcap | string
 
   /**
    * Creates a new instance of a key encryption key.
@@ -46,8 +46,8 @@ export class Kek {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }) {
     assertNoCapability(capability)
@@ -128,8 +128,8 @@ export class Kek {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }): Promise<Kek> {
     return fromCapability({

@@ -1,15 +1,15 @@
 /*!
  * Copyright (c) 2019-2026 Digital Bazaar, Inc. All rights reserved.
  */
+import type { IZcap } from '@interop/data-integrity-core'
 import { AsymmetricKey } from './AsymmetricKey.js'
 import type { CapabilityAgent } from './CapabilityAgent.js'
-import { CATEGORY_TO_CLASS } from './categoryToClass.js'
 import { Hmac } from './Hmac.js'
 import { Kek } from './Kek.js'
 import { KeyAgreementKey } from './KeyAgreementKey.js'
 import { KmsClient } from './KmsClient.js'
 import { RECOMMENDED_KEYS } from './recommendedKeys.js'
-import type { Capability, KeystoreConfig } from './types.js'
+import type { KeystoreConfig } from './types.js'
 
 const VERSIONS = ['recommended', 'fips']
 
@@ -107,7 +107,7 @@ export class KeystoreAgent {
   }: {
     category?: string
     type?: string
-    capability?: Capability
+    capability?: IZcap | string
     maxCapabilityChainLength?: number
     publicAlias?: string
     publicAliasTemplate?: string
@@ -121,32 +121,31 @@ export class KeystoreAgent {
     // resolve the key class and full key type: `type` may be a key category
     // name (deprecated) or a custom key type URL, which requires `category`
     // to select the key class; when `type` is absent, the recommended key
-    // for `category` is used
-    let keyDetails
-    if (type !== undefined) {
-      keyDetails = RECOMMENDED_KEYS.get(type)
-      if (!keyDetails) {
-        const Class =
-          category === undefined ? undefined : CATEGORY_TO_CLASS.get(category)
-        if (!Class) {
-          throw category === undefined
-            ? new TypeError(
-                '"category" is required when a custom key "type" is given.'
-              )
-            : new Error(`Unknown key category "${category}".`)
-        }
-        keyDetails = { Class, type }
+    // for `category` is used. Normalize a category name passed via `type`
+    // into `category` first, so both call shapes validate identically.
+    if (type !== undefined && RECOMMENDED_KEYS.has(type)) {
+      if (category !== undefined && category !== type) {
+        throw new Error(
+          `Key category "${category}" conflicts with "type" ("${type}"), ` +
+            'which is also a key category.'
+        )
       }
-    } else {
-      if (category === undefined) {
-        throw new TypeError('Either "category" or "type" is required.')
-      }
-      keyDetails = RECOMMENDED_KEYS.get(category)
-      if (!keyDetails) {
-        throw new Error(`Unknown key category "${category}".`)
-      }
+      category = type
+      type = undefined
     }
-    const { type: fullType, Class } = keyDetails
+    if (category === undefined) {
+      throw new TypeError(
+        type === undefined
+          ? 'Either "category" or "type" is required.'
+          : '"category" is required when a custom key "type" is given.'
+      )
+    }
+    const recommended = RECOMMENDED_KEYS.get(category)
+    if (!recommended) {
+      throw new Error(`Unknown key category "${category}".`)
+    }
+    const { Class } = recommended
+    const fullType = type ?? recommended.type
 
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -207,7 +206,7 @@ export class KeystoreAgent {
   }: {
     id?: string
     type?: string
-    capability?: Capability
+    capability?: IZcap | string
   }): Promise<Kek> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -243,7 +242,7 @@ export class KeystoreAgent {
   }: {
     id?: string
     type?: string
-    capability?: Capability
+    capability?: IZcap | string
   }): Promise<Hmac> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -285,7 +284,7 @@ export class KeystoreAgent {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
+    capability?: IZcap | string
   }): Promise<AsymmetricKey> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -338,7 +337,7 @@ export class KeystoreAgent {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
+    capability?: IZcap | string
   }): Promise<KeyAgreementKey> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -373,7 +372,7 @@ export class KeystoreAgent {
     capability,
     config
   }: {
-    capability?: Capability
+    capability?: IZcap | string
     config: KeystoreConfig
   }): Promise<KeystoreConfig> {
     const { capabilityAgent, kmsClient } = this

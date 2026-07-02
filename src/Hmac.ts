@@ -2,10 +2,10 @@
  * Copyright (c) 2019-2025 Digital Bazaar, Inc. All rights reserved.
  */
 import { base64urlnopad } from '@scure/base'
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
 import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
 import { LruCache } from '@interop/lru-memoize'
-import type { Capability, InvocationSigner } from './types.js'
 
 const CACHE_MAX = 100
 const CACHE_TTL = 3000
@@ -18,9 +18,9 @@ export class Hmac {
   kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner?: InvocationSigner
+  invocationSigner?: ISigner
   kmsClient: KmsClient
-  capability?: Capability
+  capability?: IZcap | string
   _cache: LruCache
 
   /**
@@ -51,8 +51,8 @@ export class Hmac {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }) {
     assertNoCapability(capability)
@@ -128,19 +128,27 @@ export class Hmac {
     signature: Uint8Array | string
     useCache?: boolean
   }): Promise<boolean> {
-    if (!useCache) {
-      return this._uncachedVerify({ data, signature })
-    }
-
-    // the cache key must cover the signature as well: verifying the same
-    // data against a different signature must not reuse a cached result
+    // encode a binary signature once here; the KMS operation accepts the
+    // encoded form, so it is not re-encoded downstream
     const encodedSignature =
       typeof signature === 'string'
         ? signature
         : base64urlnopad.encode(signature)
+    if (!useCache) {
+      return this._uncachedVerify({ data, signature: encodedSignature })
+    }
+
+    // the cache key must cover the signature as well: verifying the same
+    // data against a different signature must not reuse a cached result;
+    // JSON.stringify keeps the (data, signature) pair unambiguous so
+    // distinct pairs cannot collide on one key
     return this._cache.memoize({
-      key: `verify-${base64urlnopad.encode(data)}-${encodedSignature}`,
-      fn: () => this._uncachedVerify({ data, signature })
+      key: JSON.stringify([
+        'verify',
+        base64urlnopad.encode(data),
+        encodedSignature
+      ]),
+      fn: () => this._uncachedVerify({ data, signature: encodedSignature })
     })
   }
 
@@ -161,8 +169,8 @@ export class Hmac {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }): Promise<Hmac> {
     return fromCapability({
@@ -183,7 +191,7 @@ export class Hmac {
     signature
   }: {
     data: Uint8Array
-    signature: Uint8Array | string
+    signature: string
   }): Promise<boolean> {
     const { kmsId: keyId, kmsClient, capability, invocationSigner } = this
     return kmsClient.verify({

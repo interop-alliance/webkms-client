@@ -20,13 +20,7 @@ vi.mock('@interop/http-signature-zcap-invoke', () => ({
 }))
 
 import { KmsClient } from '../../src/index.js'
-
-const keystoreId = 'https://kms.example.com/kms/keystores/z1'
-const keyId = `${keystoreId}/keys/z2`
-const invocationSigner = {
-  id: 'did:key:z6MkTest#z6MkTest',
-  sign: async () => new Uint8Array(64)
-}
+import { invocationSigner, keyId, keystoreId } from './fixtures.js'
 
 describe('KmsClient operations (mocked transport)', () => {
   let client: KmsClient
@@ -243,6 +237,87 @@ describe('KmsClient operations (mocked transport)', () => {
       }
       expect(error.message).toBe('WebKMS client error: Error generating key.')
       expect(error.cause.name).toBe('DuplicateError')
+    })
+  })
+
+  describe('invocation target scheme policy', () => {
+    it('refuses an http keyId on a non-loopback host', async () => {
+      await expect(
+        client.sign({
+          keyId: 'http://any.host/kms/keystores/z1/keys/z2',
+          data: new Uint8Array([1]),
+          invocationSigner
+        })
+      ).rejects.toThrow('must be an "https" URL')
+      expect(postMock).not.toHaveBeenCalled()
+    })
+
+    it('allows an http keyId on a loopback host by default', async () => {
+      postMock.mockResolvedValue({ data: { verified: true } })
+      const result = await client.verify({
+        keyId: 'http://localhost:3002/kms/keystores/z1/keys/z2',
+        data: new Uint8Array([1]),
+        signature: 'AQID',
+        invocationSigner
+      })
+      expect(result).toBe(true)
+    })
+
+    it('refuses http loopback when allowInsecureLoopback is false', async () => {
+      const strictClient = new KmsClient({ allowInsecureLoopback: false })
+      await expect(
+        strictClient.sign({
+          keyId: 'http://localhost:3002/kms/keystores/z1/keys/z2',
+          data: new Uint8Array([1]),
+          invocationSigner
+        })
+      ).rejects.toThrow('must be an "https" URL.')
+      expect(postMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('getKeystore', () => {
+    it('throws a clear error on a non-object response body', async () => {
+      getMock.mockResolvedValue({ data: '<html>proxy error</html>' })
+      const client2 = new KmsClient({ keystoreId })
+      await expect(client2.getKeystore({ invocationSigner })).rejects.toThrow(
+        'Invalid WebKMS server response: expected an object body.'
+      )
+    })
+  })
+
+  describe('createKeystore', () => {
+    it('maps a 409 to a DuplicateError cause', async () => {
+      postMock.mockRejectedValue(
+        Object.assign(new Error('conflict'), { status: 409 })
+      )
+      let error: any
+      try {
+        await KmsClient.createKeystore({
+          url: 'https://kms.example.com/kms/keystores',
+          config: { controller: 'did:key:z6MkTest' },
+          invocationSigner
+        })
+      } catch (e) {
+        error = e
+      }
+      expect(error.message).toBe(
+        'WebKMS client error: Error during "create keystore" operation.'
+      )
+      expect(error.cause.name).toBe('DuplicateError')
+    })
+
+    it('throws a clear error when the returned config is missing "id"', async () => {
+      postMock.mockResolvedValue({ data: {} })
+      await expect(
+        KmsClient.createKeystore({
+          url: 'https://kms.example.com/kms/keystores',
+          config: { controller: 'did:key:z6MkTest' },
+          invocationSigner
+        })
+      ).rejects.toThrow(
+        'Invalid WebKMS server response: missing keystore "id".'
+      )
     })
   })
 

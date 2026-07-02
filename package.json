@@ -36,6 +36,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@interop/data-integrity-core": "^8.1.0",
     "@interop/ed25519-verification-key": "^8.0.2",
     "@interop/http-client": "^1.0.4",
     "@interop/http-signature-zcap-invoke": "^6.2.3",

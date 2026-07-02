@@ -1,17 +1,18 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
 import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
-import type { Capability, InvocationSigner, KeyDescription } from './types.js'
+import type { KeyDescription } from './types.js'
 
 export class KeyAgreementKey {
   id?: string
   kmsId?: string
   type?: string
-  invocationSigner?: InvocationSigner
+  invocationSigner?: ISigner
   kmsClient: KmsClient
-  capability?: Capability
+  capability?: IZcap | string
 
   /**
    * Creates a new instance of a key agreement key.
@@ -42,8 +43,8 @@ export class KeyAgreementKey {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }) {
     assertNoCapability(capability)
@@ -109,8 +110,8 @@ export class KeyAgreementKey {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }): Promise<KeyAgreementKey> {
     return fromCapability({

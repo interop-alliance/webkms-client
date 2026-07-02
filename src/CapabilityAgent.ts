@@ -1,16 +1,31 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
+import type {
+  ISigner,
+  IVerificationKeyPair2020
+} from '@interop/data-integrity-core'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
-import type { InvocationSigner } from './types.js'
 
 const { subtle } = globalThis.crypto
+
+/**
+ * The public + private Ed25519 verification key descriptor backing a
+ * CapabilityAgent's invocation signer: the shared `IVerificationKeyPair2020`
+ * shape, with the fields this export guarantees made required.
+ */
+export type VerificationKeyDescriptor = IVerificationKeyPair2020 &
+  Required<
+    Pick<IVerificationKeyPair2020, 'type' | 'controller' | 'publicKeyMultibase'>
+  >
 
 export class CapabilityAgent {
   handle: string
   id: string
-  signer: InvocationSigner
-  _keyPair: Ed25519VerificationKey
+  signer: ISigner
+  // Underlying Ed25519 key pair used for invocation signing. Read it through
+  // getVerificationKeyPair() rather than touching this field directly.
+  protected _keyPair: Ed25519VerificationKey
 
   /**
    * Creates a new instance of a CapabilityAgent that uses a KmsClient
@@ -33,8 +48,8 @@ export class CapabilityAgent {
    * @param {object} options - The options to use.
    * @param {string} options.handle - The semantic identifier that was used to
    *   create the key.
-   * @param {object} options.signer - An API with an `id` property, a
-   *   `type` property, and a `sign` function.
+   * @param {object} options.signer - An API with an `id` property and a
+   *   `sign` function.
    * @typedef Ed25519VerificationKey
    * @param {Ed25519VerificationKey} options.keyPair - Underlying key pair.
    *
@@ -46,7 +61,7 @@ export class CapabilityAgent {
     keyPair
   }: {
     handle: string
-    signer: InvocationSigner
+    signer: ISigner
     keyPair: Ed25519VerificationKey
   }) {
     this.handle = handle
@@ -61,11 +76,41 @@ export class CapabilityAgent {
    * Gets a signer API, typically for signing capability invocation or
    * delegation proofs.
    *
-   * @returns {object} An API with an `id` property, a `type` property, and a
-   *   `sign` function.
+   * @returns {object} An API with an `id` property and a `sign` function.
    */
-  getSigner(): InvocationSigner {
+  getSigner(): ISigner {
     return this.signer
+  }
+
+  /**
+   * Returns the Ed25519 verification key pair backing this agent's invocation
+   * signer, as a plain descriptor with `controller` set to this agent's
+   * did:key id. Exposed so callers can derive related keys -- e.g. the X25519
+   * key agreement key (the Montgomery form of this signing key) used for
+   * encrypted storage -- without reaching into private internals.
+   *
+   * @returns {VerificationKeyDescriptor} The signing key pair. Includes the
+   *   private key material; treat the result as sensitive.
+   */
+  getVerificationKeyPair(): VerificationKeyDescriptor {
+    const { type, publicKeyMultibase } = this._keyPair
+    if (!type || !publicKeyMultibase) {
+      throw new Error(
+        'CapabilityAgent is missing Ed25519 key material; cannot export ' +
+          'verification key pair.'
+      )
+    }
+    // defer to the key class's canonical exporter so the descriptor tracks
+    // its export format
+    return {
+      ...this._keyPair.toVerificationKey2020({
+        publicKey: true,
+        privateKey: true
+      }),
+      type,
+      publicKeyMultibase,
+      controller: this.id
+    }
   }
 
   /**
@@ -180,7 +225,7 @@ async function _keyFromSeedAndName({
 }: {
   seed: Uint8Array
   keyName: string
-}): Promise<{ signer: InvocationSigner; keyPair: Ed25519VerificationKey }> {
+}): Promise<{ signer: ISigner; keyPair: Ed25519VerificationKey }> {
   const extractable = false
   const hmacKey = await subtle.importKey(
     'raw',
@@ -204,9 +249,7 @@ async function _keyFromSeedAndName({
   const fingerprint = keyPair.fingerprint()
   keyPair.id = `did:key:${fingerprint}#${fingerprint}`
 
-  // create signer for the key
-  const signer = keyPair.signer() as InvocationSigner
-  signer.id = keyPair.id
-  signer.type = keyPair.type
+  // create signer for the key (includes the key's `id`, set above)
+  const signer = keyPair.signer()
   return { signer, keyPair }
 }
