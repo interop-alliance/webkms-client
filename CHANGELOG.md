@@ -1,5 +1,15 @@
 # webkms-client ChangeLog
 
+## 14.5.0 - TBD
+
+### Changed
+
+- Relax the `https:`-only capability invocation-target check
+  (`KmsClient._getInvocationTarget`) to also accept plain-`http:` targets on
+  loopback hosts (`localhost` / `127.0.0.1` / `[::1]`). Delegated zcaps can now
+  be invoked against a KMS on a local development server; all non-loopback
+  targets still require `https:`.
+
 ## 14.4.2 - 2026-06-30
 
 ### Fixed
