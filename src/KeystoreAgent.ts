@@ -9,6 +9,7 @@ import { Kek } from './Kek.js'
 import { KeyAgreementKey } from './KeyAgreementKey.js'
 import { KmsClient } from './KmsClient.js'
 import { RECOMMENDED_KEYS } from './recommendedKeys.js'
+import type { Capability, KeystoreConfig } from './types.js'
 
 const VERSIONS = ['recommended', 'fips']
 
@@ -60,31 +61,28 @@ export class KeystoreAgent {
 
   /**
    * Generates a key in the keystore associated with the internal KmsClient.
-   * To use the latest recommended key algorithms, specify the key type as
+   * To use the latest recommended key algorithms, specify the key category as
    * `hmac`, `kek`, `keyAgreement`, or `asymmetric`. A key can be generated
    * using a FIPS-compliant algorithm or the latest recommended algorithm
    * (default).
    *
-   * To generate a key using a custom algorithm of your choice, you'll need to
-   * use the `KmsClient` class directly and instantiate the key interface that
-   * is appropriate for the type of key being generated.
-   *
    * @example
-   * await generateKey({type: 'keyAgreement'})
+   * await generateKey({category: 'keyAgreement'})
    *
    * @param {object} options - The options to use.
-   * @param {string} options.category - The category of the key
-   *   ('asymmetric' | 'hmac' | 'keyAgreement' | 'kek').
+   * @param {string} [options.category] - The category of the key
+   *   ('asymmetric' | 'hmac' | 'keyAgreement' | 'kek'); required unless
+   *   `type` is given as a category name (deprecated, see below).
    * @param {string} [options.type] - The specific key type expressed
-   *   as a URL (e.g., `urn:webkms:multikey:P-256`); this can be omitted
-   *   to use the default key type for the given `category` and `version`
-   *   combination or, for backwards compatibility, a key category
-   *   value can be passed instead of using `category`, but this use is
-   *   deprecated.
+   *   as a URL (e.g., `urn:webkms:multikey:P-256`), in which case `category`
+   *   is also required to select the key interface; omit `type` to use the
+   *   default key type for the given `category` and `version` combination.
+   *   For backwards compatibility, a key category value can be passed here
+   *   instead of using `category`, but this use is deprecated.
    * @param {object} [options.capability] - The authorization capability to
    *   use to authorize generating a key; the root zcap will be used if not
    *   provided.
-   * @param {string} [options.maxCapabilityChainLength] - The max acceptable
+   * @param {number} [options.maxCapabilityChainLength] - The max acceptable
    *   length of a capability chain associated with a zcap invocation at
    *   the key's URL.
    * @param {string} [options.publicAlias] - The public alias to use for the
@@ -109,22 +107,44 @@ export class KeystoreAgent {
   }: {
     category?: string
     type?: string
-    capability?: any
+    capability?: Capability
     maxCapabilityChainLength?: number
     publicAlias?: string
     publicAliasTemplate?: string
     version?: string
-  } = {}): Promise<object> {
+  } = {}): Promise<AsymmetricKey | Hmac | Kek | KeyAgreementKey> {
     _assertVersion(version)
 
     // for the time being, fips and recommended are the same; there is no
     // other standardized key wrapping algorithm
-    const keyDetails = RECOMMENDED_KEYS.get(type as string) ?? {
-      Class: CATEGORY_TO_CLASS.get(category as string),
-      type
-    }
-    if (!(keyDetails.Class && keyDetails.type)) {
-      throw new Error(`Unknown key type "${type}".`)
+
+    // resolve the key class and full key type: `type` may be a key category
+    // name (deprecated) or a custom key type URL, which requires `category`
+    // to select the key class; when `type` is absent, the recommended key
+    // for `category` is used
+    let keyDetails
+    if (type !== undefined) {
+      keyDetails = RECOMMENDED_KEYS.get(type)
+      if (!keyDetails) {
+        const Class =
+          category === undefined ? undefined : CATEGORY_TO_CLASS.get(category)
+        if (!Class) {
+          throw category === undefined
+            ? new TypeError(
+                '"category" is required when a custom key "type" is given.'
+              )
+            : new Error(`Unknown key category "${category}".`)
+        }
+        keyDetails = { Class, type }
+      }
+    } else {
+      if (category === undefined) {
+        throw new TypeError('Either "category" or "type" is required.')
+      }
+      keyDetails = RECOMMENDED_KEYS.get(category)
+      if (!keyDetails) {
+        throw new Error(`Unknown key category "${category}".`)
+      }
     }
     const { type: fullType, Class } = keyDetails
 
@@ -138,16 +158,26 @@ export class KeystoreAgent {
       publicAlias,
       publicAliasTemplate
     })
-    const { id } = keyDescription
-    ;({ type } = keyDescription)
-    return new Class({
-      id,
-      kmsId: keyId,
-      type,
-      invocationSigner,
-      kmsClient,
-      keyDescription
-    })
+    const { id, type: serverType } = keyDescription
+    try {
+      return new Class({
+        id,
+        kmsId: keyId,
+        type: serverType,
+        invocationSigner,
+        kmsClient,
+        keyDescription
+      })
+    } catch (cause: any) {
+      // the key already exists server-side at this point; attribute the
+      // construction failure (e.g. an unexpected server-returned `type`)
+      // instead of surfacing a bare constructor error
+      throw new Error(
+        `Generated key "${keyId}" exists in the keystore, but constructing ` +
+          `its interface failed: ${cause.message}`,
+        { cause }
+      )
+    }
   }
 
   /**
@@ -177,7 +207,7 @@ export class KeystoreAgent {
   }: {
     id?: string
     type?: string
-    capability?: any
+    capability?: Capability
   }): Promise<Kek> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -213,7 +243,7 @@ export class KeystoreAgent {
   }: {
     id?: string
     type?: string
-    capability?: any
+    capability?: Capability
   }): Promise<Hmac> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -255,7 +285,7 @@ export class KeystoreAgent {
     id?: string
     kmsId?: string
     type?: string
-    capability?: any
+    capability?: Capability
   }): Promise<AsymmetricKey> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -308,7 +338,7 @@ export class KeystoreAgent {
     id?: string
     kmsId?: string
     type?: string
-    capability?: any
+    capability?: Capability
   }): Promise<KeyAgreementKey> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
@@ -343,9 +373,9 @@ export class KeystoreAgent {
     capability,
     config
   }: {
-    capability?: any
-    config: any
-  }): Promise<any> {
+    capability?: Capability
+    config: KeystoreConfig
+  }): Promise<KeystoreConfig> {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
     return kmsClient.updateKeystore({ capability, config, invocationSigner })

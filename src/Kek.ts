@@ -1,7 +1,9 @@
 /*!
  * Copyright (c) 2019-2022 Digital Bazaar, Inc. All rights reserved.
  */
+import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
+import type { Capability, InvocationSigner } from './types.js'
 
 const JOSE_ALGORITHM_MAP = {
   AesKeyWrappingKey2019: 'A256KW'
@@ -9,11 +11,12 @@ const JOSE_ALGORITHM_MAP = {
 
 export class Kek {
   id?: string
+  kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner: any
+  invocationSigner?: InvocationSigner
   kmsClient: KmsClient
-  capability: any
+  capability?: Capability
 
   /**
    * Creates a new instance of a key encryption key.
@@ -21,6 +24,8 @@ export class Kek {
    *
    * @param {object} options - The options to use.
    * @param {string} options.id - The ID for this key.
+   * @param {string} [options.kmsId=options.id] - The key ID used to
+   *   identify the key with the KMS.
    * @param {string} options.type - The type for this key.
    * @param {object} [options.capability] - Do not pass "capability" here;
    *   use `.fromCapability` instead.
@@ -32,24 +37,22 @@ export class Kek {
    */
   constructor({
     id,
+    kmsId = id,
     type,
     capability,
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
     id?: string
+    kmsId?: string
     type?: string
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
   }) {
-    if (capability) {
-      throw new Error(
-        '"capability" parameter not allowed in constructor; ' +
-          'use ".fromCapability" instead.'
-      )
-    }
+    assertNoCapability(capability)
     this.id = id
+    this.kmsId = kmsId
     this.type = type
     this.algorithm = JOSE_ALGORITHM_MAP[type as keyof typeof JOSE_ALGORITHM_MAP]
     if (!this.algorithm) {
@@ -74,7 +77,7 @@ export class Kek {
   }: {
     unwrappedKey: Uint8Array
   }): Promise<Uint8Array> {
-    const { id: kekId, kmsClient, capability, invocationSigner } = this
+    const { kmsId: kekId, kmsClient, capability, invocationSigner } = this
     return kmsClient.wrapKey({
       kekId,
       unwrappedKey,
@@ -98,7 +101,7 @@ export class Kek {
   }: {
     wrappedKey: string
   }): Promise<Uint8Array | null> {
-    const { id: kekId, kmsClient, capability, invocationSigner } = this
+    const { kmsId: kekId, kmsClient, capability, invocationSigner } = this
     return kmsClient.unwrapKey({
       kekId,
       wrappedKey,
@@ -125,21 +128,15 @@ export class Kek {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: any
-    invocationSigner?: any
+    capability?: Capability
+    invocationSigner?: InvocationSigner
     kmsClient?: KmsClient
   }): Promise<Kek> {
-    // get key description via capability
-    const keyDescription = await kmsClient.getKeyDescription({
+    return fromCapability({
+      KeyClass: Kek,
       capability,
-      invocationSigner
+      invocationSigner,
+      kmsClient
     })
-
-    // build asymmetric key from description
-    const id = KmsClient._getInvocationTarget({ capability })
-    const { type } = keyDescription
-    const key = new Kek({ id, type, kmsClient, invocationSigner })
-    key.capability = capability
-    return key
   }
 }

@@ -25,6 +25,33 @@ const keys = new Map([
 ])
 
 describe('AsymmetricKey API', () => {
+  describe('getAlgorithm', () => {
+    it('returns undefined when called without a key description', () => {
+      expect(AsymmetricKey.getAlgorithm()).toBeUndefined()
+      expect(AsymmetricKey.getAlgorithm({})).toBeUndefined()
+      expect(AsymmetricKey.getAlgorithm({ keyDescription: {} })).toBeUndefined()
+    })
+  })
+
+  describe('getKeyDescription', () => {
+    it('returns a clone of the cached key description', async () => {
+      const keyDescription = {
+        id: 'did:key:z6MkoQjzqWih7kG3VSQy95reUwLeAT2FHLUqKsR2aXzZdB3g',
+        type: 'Ed25519VerificationKey2020',
+        publicKeyMultibase: 'z6MkoQjzqWih7kG3VSQy95reUwLeAT2FHLUqKsR2aXzZdB3g'
+      }
+      const key = new AsymmetricKey({ keyDescription })
+      const result = await key.getKeyDescription()
+      expect(result).toEqual(keyDescription)
+      expect(result).not.toBe(keyDescription)
+      // mutating the returned clone must not affect the cached copy
+      result.type = 'mutated'
+      expect((await key.getKeyDescription()).type).toBe(
+        'Ed25519VerificationKey2020'
+      )
+    })
+  })
+
   describe('should create key from keyDescription', () => {
     for (const [keyType, did] of keys) {
       it(`key type ${keyType}`, async () => {
