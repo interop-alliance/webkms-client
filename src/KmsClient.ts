@@ -977,15 +977,49 @@ export class KmsClient {
 
     if (!(
       typeof invocationTarget === 'string' &&
-      invocationTarget.startsWith('https://')
+      _isAllowedInvocationTarget({ invocationTarget })
     )) {
       throw new TypeError(
-        '"invocationTarget" from capability must be an "https" URL.'
+        '"invocationTarget" from capability must be an "https" URL ' +
+          '(or an "http" URL on a loopback host, for development).'
       )
     }
 
     return invocationTarget
   }
+}
+
+/**
+ * Checks that a capability's invocation target is an acceptable URL:
+ * `https:`, or -- as a development exception -- plain `http:` on a loopback
+ * host (`localhost` / `127.0.0.1` / `[::1]`), so delegated zcaps work
+ * against a KMS on a local dev server.
+ *
+ * @param {object} options - Options hashmap.
+ * @param {string} options.invocationTarget - The invocation target URL.
+ *
+ * @returns {boolean} True if the target is acceptable.
+ */
+function _isAllowedInvocationTarget({
+  invocationTarget
+}: {
+  invocationTarget: string
+}): boolean {
+  if (invocationTarget.startsWith('https://')) {
+    return true
+  }
+  if (!invocationTarget.startsWith('http://')) {
+    return false
+  }
+  let hostname
+  try {
+    ;({ hostname } = new URL(invocationTarget))
+  } catch {
+    return false
+  }
+  return (
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  )
 }
 
 /**
