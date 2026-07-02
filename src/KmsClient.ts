@@ -3,16 +3,10 @@
  */
 import { base64urlnopad } from '@scure/base'
 import { DEFAULT_HEADERS, httpClient } from '@interop/http-client'
-import type { HttpResponse } from '@interop/http-client'
 import { LruCache } from '@interop/lru-memoize'
 import { signCapabilityInvocation } from '@interop/http-signature-zcap-invoke'
-import type { IZcap } from '@interop/http-signature-zcap-invoke'
-import type {
-  Capability,
-  InvocationSigner,
-  KeyDescription,
-  KeystoreConfig
-} from './types.js'
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
+import type { KeyDescription, KeystoreConfig } from './types.js'
 
 const ZCAP_ROOT_PREFIX = 'urn:zcap:root:'
 
@@ -33,6 +27,7 @@ export class KmsClient {
   keystoreId?: string
   agent?: unknown
   defaultHeaders: Record<string, string>
+  allowInsecureLoopback: boolean
 
   /**
    * Creates a new KmsClient.
@@ -46,17 +41,23 @@ export class KmsClient {
    *   to use when making requests.
    * @param {object} [options.defaultHeaders] - The HTTP headers to include
    *   with every request.
+   * @param {boolean} [options.allowInsecureLoopback=true] - `true` to allow
+   *   plain-`http` invocation targets on loopback hosts (`localhost` /
+   *   `127.0.0.1` / `[::1]`) as a development exception; `false` to require
+   *   `https` for all targets.
    *
    * @returns {KmsClient} The new instance.
    */
   constructor({
     keystoreId,
     httpsAgent,
-    defaultHeaders
+    defaultHeaders,
+    allowInsecureLoopback = true
   }: {
     keystoreId?: string
     httpsAgent?: unknown
     defaultHeaders?: Record<string, string>
+    allowInsecureLoopback?: boolean
   } = {}) {
     if (keystoreId) {
       _assert(keystoreId, 'keystoreId', 'string')
@@ -64,6 +65,7 @@ export class KmsClient {
     this.keystoreId = keystoreId
     this.agent = httpsAgent
     this.defaultHeaders = { ...DEFAULT_HEADERS, ...defaultHeaders }
+    this.allowInsecureLoopback = allowInsecureLoopback
   }
 
   /**
@@ -97,12 +99,15 @@ export class KmsClient {
     publicAliasTemplate
   }: {
     type?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     maxCapabilityChainLength?: number
     publicAlias?: string
     publicAliasTemplate?: string
-  }): Promise<{ keyId: string; keyDescription: KeyDescription }> {
+  }): Promise<{
+    keyId: string
+    keyDescription: KeyDescription
+  }> {
     _assert(type, 'type', 'string')
     _assert(invocationSigner, 'invocationSigner', 'object')
     if (
@@ -152,12 +157,14 @@ export class KmsClient {
       operation.invocationTarget.publicAliasTemplate = publicAliasTemplate
     }
 
-    const { keystoreId } = this
-    const target = _resolveTarget({
-      capability,
-      keystoreId,
-      url: `${keystoreId}/keys`
-    })
+    let target
+    if (capability) {
+      target = _resolveTarget({ capability })
+    } else {
+      // keys are created under the keystore's `/keys` collection
+      target = _resolveTarget({ keystoreId: this.keystoreId })
+      target.url = `${target.url}/keys`
+    }
     const data = (await this._invoke({
       ...target,
       json: operation,
@@ -177,7 +184,10 @@ export class KmsClient {
           'missing "keyId" or "keyDescription".'
       )
     }
-    return { keyId, keyDescription: keyDescription as KeyDescription }
+    return {
+      keyId,
+      keyDescription: keyDescription as KeyDescription
+    }
   }
 
   /**
@@ -203,8 +213,8 @@ export class KmsClient {
     useCache = true
   }: {
     keyId?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     useCache?: boolean
   }): Promise<KeyDescription> {
     _assert(invocationSigner, 'invocationSigner', 'object')
@@ -248,43 +258,43 @@ export class KmsClient {
     capability,
     invocationSigner
   }: {
-    capabilityToRevoke: Exclude<Capability, string>
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capabilityToRevoke: IZcap
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<void> {
     _assert(capabilityToRevoke, 'capabilityToRevoke', 'object')
     _assert(invocationSigner, 'invocationSigner', 'object')
 
-    let { keystoreId } = this
-    if (!keystoreId && !capability) {
-      // since no `keystoreId` was set and no `capability` with an invocation
-      // target that can be parsed was given, get the keystore ID from the
-      // capability that is to be revoked -- presuming it is a WebKMS key (if
-      // revoking any other capability, the `keystoreId` must be set or a
-      // `capability` passed to invoke)
-      const invocationTarget = KmsClient._getInvocationTarget({
-        capability: capabilityToRevoke
-      })
-      const idx = invocationTarget.lastIndexOf('/keys/')
-      if (idx === -1) {
-        throw new Error(
-          `Invalid WebKMS key invocation target (${invocationTarget}).`
-        )
+    let target
+    if (capability) {
+      target = _resolveTarget({ capability })
+    } else {
+      let { keystoreId } = this
+      if (!keystoreId) {
+        // since no `keystoreId` was set and no `capability` with an
+        // invocation target that can be parsed was given, get the keystore
+        // ID from the capability that is to be revoked -- presuming it is a
+        // WebKMS key (if revoking any other capability, the `keystoreId`
+        // must be set or a `capability` passed to invoke)
+        const invocationTarget = KmsClient._getInvocationTarget({
+          capability: capabilityToRevoke
+        })
+        const idx = invocationTarget.lastIndexOf('/keys/')
+        if (idx === -1) {
+          throw new Error(
+            `Invalid WebKMS key invocation target (${invocationTarget}).`
+          )
+        }
+        keystoreId = invocationTarget.slice(0, idx)
       }
-      keystoreId = invocationTarget.slice(0, idx)
-    }
-
-    const url = capability
-      ? KmsClient._getInvocationTarget({ capability })
-      : `${keystoreId}/zcaps/revocations/` +
-        `${encodeURIComponent(capabilityToRevoke.id as string)}`
-    if (!capability) {
-      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
+      const url =
+        `${keystoreId}/zcaps/revocations/` +
+        `${encodeURIComponent(capabilityToRevoke.id)}`
+      target = { url, capability: _getRootZcapId({ url }) }
     }
 
     await this._invoke({
-      url,
-      capability,
+      ...target,
       json: capabilityToRevoke,
       invocationSigner,
       capabilityAction: 'write',
@@ -318,8 +328,8 @@ export class KmsClient {
   }: {
     kekId?: string
     unwrappedKey: Uint8Array
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<Uint8Array> {
     _assert(kekId, 'kekId', 'string')
     _assert(unwrappedKey, 'unwrappedKey', 'Uint8Array')
@@ -367,8 +377,8 @@ export class KmsClient {
   }: {
     kekId?: string
     wrappedKey: Uint8Array | string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<Uint8Array | null> {
     _assert(kekId, 'kekId', 'string')
     _assert(wrappedKey, 'wrappedKey', ['string', 'Uint8Array'])
@@ -427,8 +437,8 @@ export class KmsClient {
   }: {
     keyId?: string
     data: Uint8Array
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<Uint8Array> {
     _assert(keyId, 'keyId', 'string')
     _assert(data, 'data', 'Uint8Array')
@@ -480,8 +490,8 @@ export class KmsClient {
     keyId?: string
     data: Uint8Array
     signature: Uint8Array | string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<boolean> {
     _assert(keyId, 'keyId', 'string')
     _assert(data, 'data', 'Uint8Array')
@@ -542,8 +552,8 @@ export class KmsClient {
   }: {
     keyId?: string
     publicKey: KeyDescription
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<Uint8Array> {
     _assert(keyId, 'keyId', 'string')
     _assert(publicKey, 'publicKey', 'object')
@@ -585,9 +595,9 @@ export class KmsClient {
     config,
     invocationSigner
   }: {
-    capability?: Capability
+    capability?: IZcap | string
     config: KeystoreConfig
-    invocationSigner?: InvocationSigner
+    invocationSigner?: ISigner
   }): Promise<KeystoreConfig> {
     _assert(invocationSigner, 'invocationSigner', 'object')
 
@@ -603,7 +613,8 @@ export class KmsClient {
       json: config,
       invocationSigner,
       capabilityAction: 'write',
-      message: 'Error during "update keystore" operation.'
+      message: 'Error during "update keystore" operation.',
+      expect: 'object'
     })
     return data as KeystoreConfig
   }
@@ -625,8 +636,8 @@ export class KmsClient {
     capability,
     invocationSigner
   }: {
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<KeystoreConfig> {
     _assert(invocationSigner, 'invocationSigner', 'object')
 
@@ -642,7 +653,8 @@ export class KmsClient {
       method: 'get',
       invocationSigner,
       capabilityAction: 'read',
-      message: 'Error during "get keystore" operation.'
+      message: 'Error during "get keystore" operation.',
+      expect: 'object'
     })
     return data as KeystoreConfig
   }
@@ -674,8 +686,8 @@ export class KmsClient {
   }: {
     url?: string
     config?: KeystoreConfig
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     httpsAgent?: unknown
   } = {}): Promise<KeystoreConfig> {
     _assert(url, 'url', 'string')
@@ -683,38 +695,21 @@ export class KmsClient {
     _assert(config.controller, 'config.controller', 'string')
     _assert(invocationSigner, 'invocationSigner', 'object')
 
-    if (!capability) {
-      capability = `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
+    const data = (await _invoke({
+      url,
+      capability: capability ?? _getRootZcapId({ url }),
+      json: config,
+      invocationSigner,
+      capabilityAction: 'write',
+      message: 'Error during "create keystore" operation.',
+      duplicateMessage: 'Duplicate keystore.',
+      expect: 'object',
+      agent: httpsAgent,
+      headers: DEFAULT_HEADERS
+    })) as KeystoreConfig
+    if (typeof data.id !== 'string') {
+      throw new Error('Invalid WebKMS server response: missing keystore "id".')
     }
-
-    let result: HttpResponse
-    try {
-      const headers = await signCapabilityInvocation({
-        url,
-        method: 'post',
-        headers: DEFAULT_HEADERS,
-        json: config,
-        capability: capability as string | IZcap,
-        invocationSigner,
-        capabilityAction: 'write'
-      })
-
-      // send request
-      result = await httpClient.post(url, {
-        agent: httpsAgent,
-        headers,
-        json: config
-      })
-    } catch (e) {
-      _handleClientError({
-        message: 'Error during "create keystore" operation.',
-        cause: e
-      })
-    }
-
-    _assert(result.data, 'result.data', 'object')
-    const data = result.data as KeystoreConfig
-    _assert(data.id, 'result.data.id', 'string')
     return data
   }
 
@@ -724,8 +719,8 @@ export class KmsClient {
     invocationSigner
   }: {
     url: string
-    capability: Capability
-    invocationSigner?: InvocationSigner
+    capability: IZcap | string
+    invocationSigner?: ISigner
   }): Promise<KeyDescription> {
     _assert(invocationSigner, 'invocationSigner', 'object')
 
@@ -736,88 +731,34 @@ export class KmsClient {
       invocationSigner,
       capabilityAction: 'read',
       message: 'Error fetching key description.',
-      notFoundMessage: 'Key description not found.'
+      notFoundMessage: 'Key description not found.',
+      expect: 'object'
     })
     return data as KeyDescription
   }
 
   /**
-   * Signs and sends a single capability invocation to the KMS: signs the
-   * invocation headers, performs the HTTP request, and maps any failure
-   * through `_handleClientError`.
+   * Signs and sends a single capability invocation to the KMS using this
+   * client's agent, headers, and target policy.
    *
-   * @param {object} options - The options to use.
-   * @param {string} options.url - The invocation target URL.
-   * @param {string|object} options.capability - The authorization capability.
-   * @param {string} [options.method='post'] - The HTTP method.
-   * @param {object} [options.json] - The JSON body to send (POST only).
-   * @param {object} options.invocationSigner - An API for signing a
-   *   capability invocation.
-   * @param {string} options.capabilityAction - The capability action.
-   * @param {string} options.message - The error message to use on failure.
-   * @param {string} [options.notFoundMessage] - Optional message for 404s.
-   * @param {string} [options.duplicateMessage] - If given, map a 409 response
-   *   to a `DuplicateError` with this message.
+   * @param {object} options - The options to use; see the module-level
+   *   `_invoke`.
    *
    * @returns {Promise<unknown>} The parsed response body.
    */
-  async _invoke({
-    url,
-    capability,
-    method = 'post',
-    json,
-    invocationSigner,
-    capabilityAction,
-    message,
-    notFoundMessage,
-    duplicateMessage
-  }: {
-    url: string
-    capability: Capability
-    method?: 'get' | 'post'
-    json?: object
-    invocationSigner: InvocationSigner
-    capabilityAction: string
-    message: string
-    notFoundMessage?: string
-    duplicateMessage?: string
-  }): Promise<unknown> {
-    try {
-      const headers = await signCapabilityInvocation({
-        url,
-        method,
-        headers: this.defaultHeaders,
-        ...(json === undefined ? {} : { json }),
-        capability: capability as string | IZcap,
-        invocationSigner,
-        capabilityAction
-      })
-
-      // send request
-      const { agent } = this
-      const result =
-        method === 'get'
-          ? await httpClient.get(url, { agent, headers })
-          : await httpClient.post(url, { agent, headers, json })
-      return result.data
-    } catch (e) {
-      _handleClientError({
-        message,
-        notFoundMessage,
-        duplicateMessage,
-        cause: e
-      })
-    }
+  async _invoke(options: InvokeOptions): Promise<unknown> {
+    const { agent, defaultHeaders: headers, allowInsecureLoopback } = this
+    return _invoke({ ...options, agent, headers, allowInsecureLoopback })
   }
 
-  static _getInvocationTarget(options: { capability: Capability }): string
+  static _getInvocationTarget(options: { capability: IZcap | string }): string
   static _getInvocationTarget(options: {
-    capability?: Capability | null
+    capability?: IZcap | string | null
   }): string | null
   static _getInvocationTarget({
     capability
   }: {
-    capability?: Capability | null
+    capability?: IZcap | string | null
   }): string | null {
     // no capability, so no invocation target
     if (capability === undefined || capability === null) {
@@ -840,7 +781,7 @@ export class KmsClient {
 
     if (!(
       typeof invocationTarget === 'string' &&
-      _isAllowedInvocationTarget({ invocationTarget })
+      _isAllowedTarget({ url: invocationTarget, allowInsecureLoopback: true })
     )) {
       throw new TypeError(
         '"invocationTarget" from capability must be an "https" URL ' +
@@ -853,30 +794,130 @@ export class KmsClient {
 }
 
 /**
+ * The per-operation options for `_invoke` (shared by the instance wrapper
+ * and the module-level function).
+ */
+interface InvokeOptions {
+  /** The invocation target URL. */
+  url: string
+  /** The authorization capability. */
+  capability: IZcap | string
+  /** The HTTP method (default 'post'). */
+  method?: 'get' | 'post'
+  /** The JSON body to send (POST only). */
+  json?: object
+  /** An API for signing a capability invocation. */
+  invocationSigner: ISigner
+  /** The capability action. */
+  capabilityAction: string
+  /** The error message to use on failure. */
+  message: string
+  /** Optional message for 404s. */
+  notFoundMessage?: string
+  /** If given, map a 409 response to a `DuplicateError` with this message. */
+  duplicateMessage?: string
+  /** If 'object', require the response body to be an object. */
+  expect?: 'object'
+}
+
+/**
+ * Signs and sends a single capability invocation to the KMS: validates the
+ * target URL scheme, signs the invocation headers, performs the HTTP
+ * request, maps any failure through `_handleClientError`, and (optionally)
+ * asserts the response body shape.
+ *
+ * @param {object} options - The options to use; `InvokeOptions` plus the
+ *   client context.
+ * @param {object} [options.agent] - A Node.js `https.Agent` instance.
+ * @param {object} options.headers - The HTTP headers to include.
+ * @param {boolean} [options.allowInsecureLoopback=true] - Allow plain-`http`
+ *   targets on loopback hosts.
+ *
+ * @returns {Promise<unknown>} The parsed response body.
+ */
+async function _invoke({
+  url,
+  capability,
+  method = 'post',
+  json,
+  invocationSigner,
+  capabilityAction,
+  message,
+  notFoundMessage,
+  duplicateMessage,
+  expect,
+  agent,
+  headers,
+  allowInsecureLoopback = true
+}: InvokeOptions & {
+  agent?: unknown
+  headers: Record<string, string>
+  allowInsecureLoopback?: boolean
+}): Promise<unknown> {
+  if (!_isAllowedTarget({ url, allowInsecureLoopback })) {
+    throw new TypeError(
+      `Refusing to send a KMS invocation to (${url}): the target must be ` +
+        'an "https" URL' +
+        (allowInsecureLoopback
+          ? ' (or an "http" URL on a loopback host, for development).'
+          : '.')
+    )
+  }
+
+  let data: unknown
+  try {
+    const signedHeaders = await signCapabilityInvocation({
+      url,
+      method,
+      headers,
+      ...(json === undefined ? {} : { json }),
+      capability,
+      invocationSigner,
+      capabilityAction
+    })
+
+    // send request
+    const result =
+      method === 'get'
+        ? await httpClient.get(url, { agent, headers: signedHeaders })
+        : await httpClient.post(url, { agent, headers: signedHeaders, json })
+    data = result.data
+  } catch (e) {
+    _handleClientError({
+      message,
+      notFoundMessage,
+      duplicateMessage,
+      cause: e
+    })
+  }
+  if (expect === 'object' && (data === null || typeof data !== 'object')) {
+    throw new Error('Invalid WebKMS server response: expected an object body.')
+  }
+  return data
+}
+
+/**
  * Resolves the invocation target URL and capability for a KMS operation:
  * uses the given capability's invocation target when a capability is passed,
- * otherwise falls back to the key/keystore ID (or the given fallback `url`)
- * and its root zcap.
+ * otherwise falls back to the key/keystore ID and its root zcap (a key's
+ * root zcap is rooted at its keystore's URL).
  *
  * @param {object} options - Options hashmap.
  * @param {string|object} [options.capability] - The authorization capability.
  * @param {string} [options.keyId] - The key ID fallback target.
  * @param {string} [options.keystoreId] - The keystore ID fallback target.
- * @param {string} [options.url] - An explicit fallback target URL.
  *
  * @returns {{url: string, capability: string|object}} The resolved target.
  */
 function _resolveTarget({
   capability,
   keyId,
-  keystoreId,
-  url
+  keystoreId
 }: {
-  capability?: Capability
+  capability?: IZcap | string
   keyId?: string
   keystoreId?: string
-  url?: string
-}): { url: string; capability: Capability } {
+}): { url: string; capability: IZcap | string } {
   if (capability) {
     return { url: KmsClient._getInvocationTarget({ capability }), capability }
   }
@@ -886,7 +927,15 @@ function _resolveTarget({
       'Either a "capability" or a key/keystore ID is required.'
     )
   }
-  return { url: url ?? id, capability: _getRootZcapId({ keyId, keystoreId }) }
+  let rootTarget = id
+  if (keyId !== undefined) {
+    const idx = keyId.lastIndexOf('/keys/')
+    if (idx === -1) {
+      throw new Error(`Invalid WebKMS key ID (${keyId}).`)
+    }
+    rootTarget = keyId.slice(0, idx)
+  }
+  return { url: id, capability: _getRootZcapId({ url: rootTarget }) }
 }
 
 /**
@@ -938,30 +987,34 @@ function _decodeResponseBytes({
 }
 
 /**
- * Checks that a capability's invocation target is an acceptable URL:
- * `https:`, or -- as a development exception -- plain `http:` on a loopback
- * host (`localhost` / `127.0.0.1` / `[::1]`), so delegated zcaps work
- * against a KMS on a local dev server.
+ * Checks that a KMS invocation target is an acceptable URL: `https:`, or --
+ * if `allowInsecureLoopback` is set, as a development exception -- plain
+ * `http:` on a loopback host (`localhost` / `127.0.0.1` / `[::1]`), so
+ * zcaps work against a KMS on a local dev server.
  *
  * @param {object} options - Options hashmap.
- * @param {string} options.invocationTarget - The invocation target URL.
+ * @param {string} options.url - The invocation target URL.
+ * @param {boolean} options.allowInsecureLoopback - Allow the plain-`http`
+ *   loopback exception.
  *
  * @returns {boolean} True if the target is acceptable.
  */
-function _isAllowedInvocationTarget({
-  invocationTarget
+function _isAllowedTarget({
+  url,
+  allowInsecureLoopback
 }: {
-  invocationTarget: string
+  url: string
+  allowInsecureLoopback: boolean
 }): boolean {
-  if (invocationTarget.startsWith('https://')) {
+  if (url.startsWith('https://')) {
     return true
   }
-  if (!invocationTarget.startsWith('http://')) {
+  if (!allowInsecureLoopback || !url.startsWith('http://')) {
     return false
   }
   let hostname
   try {
-    ;({ hostname } = new URL(invocationTarget))
+    ;({ hostname } = new URL(url))
   } catch {
     return false
   }
@@ -1038,24 +1091,14 @@ function _assert(
   }
 }
 
-function _getRootZcapId({
-  keystoreId,
-  keyId
-}: {
-  keystoreId?: string
-  keyId?: string
-}): string {
-  let suffix: string
-  if (keyId) {
-    const idx = keyId.lastIndexOf('/keys/')
-    if (idx === -1) {
-      throw new Error(`Invalid WebKMS key ID (${keyId}).`)
-    }
-    suffix = keyId.slice(0, idx)
-  } else if (keystoreId) {
-    suffix = keystoreId
-  } else {
-    throw new TypeError('Either "keyId" or "keystoreId" is required.')
-  }
-  return `${ZCAP_ROOT_PREFIX}${encodeURIComponent(suffix)}`
+/**
+ * Returns the ID of the root zcap for the given target URL.
+ *
+ * @param {object} options - Options hashmap.
+ * @param {string} options.url - The target URL the root zcap authorizes.
+ *
+ * @returns {string} The root zcap ID (a `urn:zcap:root:` URN).
+ */
+function _getRootZcapId({ url }: { url: string }): string {
+  return `${ZCAP_ROOT_PREFIX}${encodeURIComponent(url)}`
 }

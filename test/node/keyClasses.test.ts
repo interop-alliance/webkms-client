@@ -2,18 +2,16 @@
  * Copyright (c) 2026 Interop Alliance and Dmitri Zagidulin.
  */
 import { describe, it, expect, vi } from 'vitest'
+import type { IZcap } from '@interop/data-integrity-core'
 import { AsymmetricKey, Hmac, Kek, KeyAgreementKey } from '../../src/index.js'
 import type { KeyDescription, KmsClient } from '../../src/index.js'
+import { invocationSigner, keyId as invocationTarget } from './fixtures.js'
 
-const invocationTarget = 'https://kms.example.com/kms/keystores/z1/keys/z2'
+// minimal delegated zcap stub; only the fields the client reads
 const capability = {
   id: 'urn:uuid:delegated-zcap',
   invocationTarget
-}
-const invocationSigner = {
-  id: 'did:key:z6MkTest#z6MkTest',
-  sign: async () => new Uint8Array(64)
-}
+} as IZcap
 
 function createKmsClient(keyDescription: KeyDescription) {
   return {
@@ -93,6 +91,16 @@ describe('key classes fromCapability', () => {
     expect(key.kmsId).toBe(invocationTarget)
     expect(key.type).toBe('X25519KeyAgreementKey2020')
     expect(key.capability).toBe(capability)
+  })
+
+  it('requires a capability', async () => {
+    const kmsClient = createKmsClient({
+      id: invocationTarget,
+      type: 'Sha256HmacKey2019'
+    })
+    await expect(
+      Hmac.fromCapability({ invocationSigner, kmsClient })
+    ).rejects.toThrow('"capability" is required.')
   })
 })
 

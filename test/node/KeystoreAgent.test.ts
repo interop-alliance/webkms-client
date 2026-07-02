@@ -14,13 +14,7 @@ import type {
   KeyDescription,
   KmsClient
 } from '../../src/index.js'
-
-const keystoreId = 'https://kms.example.com/kms/keystores/z1'
-const keyId = `${keystoreId}/keys/z2`
-const invocationSigner = {
-  id: 'did:key:z6MkTest#z6MkTest',
-  sign: async () => new Uint8Array(64)
-}
+import { invocationSigner, keyId, keystoreId } from './fixtures.js'
 
 function createAgent({ keyDescription }: { keyDescription: KeyDescription }) {
   const generateKey = vi.fn(async () => ({ keyId, keyDescription }))
@@ -123,6 +117,35 @@ describe('KeystoreAgent.generateKey', () => {
     })
     await expect(agent.generateKey({ category: 'sekrit' })).rejects.toThrow(
       'Unknown key category "sekrit".'
+    )
+  })
+
+  it('rejects a category that conflicts with a category name in `type`', async () => {
+    const { agent, generateKey } = createAgent({
+      keyDescription: { id: keyId, type: 'Sha256HmacKey2019' }
+    })
+    // `type` given as a category name must not override an explicit,
+    // conflicting `category` -- known or unknown
+    await expect(
+      agent.generateKey({ category: 'kek', type: 'hmac' })
+    ).rejects.toThrow(
+      'Key category "kek" conflicts with "type" ("hmac"), which is also ' +
+        'a key category.'
+    )
+    await expect(
+      agent.generateKey({ category: 'bogus', type: 'hmac' })
+    ).rejects.toThrow('conflicts with "type"')
+    expect(generateKey).not.toHaveBeenCalled()
+  })
+
+  it('accepts a matching category and category name in `type`', async () => {
+    const { agent, generateKey } = createAgent({
+      keyDescription: { id: keyId, type: 'Sha256HmacKey2019' }
+    })
+    const key = await agent.generateKey({ category: 'hmac', type: 'hmac' })
+    expect(key).toBeInstanceOf(Hmac)
+    expect(generateKey).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'Sha256HmacKey2019' })
     )
   })
 

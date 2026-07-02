@@ -2,14 +2,10 @@
  * Copyright (c) 2026 Interop Alliance and Dmitri Zagidulin.
  */
 import { describe, it, expect, vi } from 'vitest'
+import { base64urlnopad } from '@scure/base'
 import { Hmac } from '../../src/index.js'
 import type { KmsClient } from '../../src/index.js'
-
-const keyId = 'https://kms.example.com/kms/keystores/z1/keys/z2'
-const invocationSigner = {
-  id: 'did:key:z6MkTest#z6MkTest',
-  sign: async () => new Uint8Array(64)
-}
+import { invocationSigner, keyId } from './fixtures.js'
 
 function createHmac({
   id = keyId,
@@ -57,6 +53,23 @@ describe('Hmac', () => {
       expect(await hmac.verify({ data, signature: 'sig' })).toBe(true)
       expect(await hmac.verify({ data, signature: 'sig' })).toBe(true)
       expect(verify).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not collide keys across the (data, signature) boundary', async () => {
+      const verify = vi.fn(async () => true)
+      const { hmac } = createHmac({ verify })
+
+      // both pairs concatenate to the same string when joined naively with
+      // '-' (a base64url alphabet character); each must hit the KMS
+      await hmac.verify({
+        data: base64urlnopad.decode('-w'),
+        signature: 'X-YZ'
+      })
+      await hmac.verify({
+        data: base64urlnopad.decode('-w-X'),
+        signature: 'YZ'
+      })
+      expect(verify).toHaveBeenCalledTimes(2)
     })
 
     it('caches Uint8Array and string forms of the same signature together', async () => {

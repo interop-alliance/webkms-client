@@ -1,8 +1,9 @@
 /*!
  * Copyright (c) 2026 Interop Alliance and Dmitri Zagidulin.
  */
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
 import { KmsClient } from './KmsClient.js'
-import type { Capability, InvocationSigner, KeyDescription } from './types.js'
+import type { KeyDescription } from './types.js'
 
 /**
  * Throws if a `capability` was passed to a key class constructor; key
@@ -10,7 +11,7 @@ import type { Capability, InvocationSigner, KeyDescription } from './types.js'
  *
  * @param {object|string} [capability] - The offending constructor argument.
  */
-export function assertNoCapability(capability?: Capability): void {
+export function assertNoCapability(capability?: IZcap | string): void {
   if (capability) {
     throw new Error(
       '"capability" parameter not allowed in constructor; ' +
@@ -28,14 +29,16 @@ export function assertNoCapability(capability?: Capability): void {
  *
  * @param {object} options - The options to use.
  * @param {Function} options.KeyClass - The key class to construct.
- * @param {object|string} [options.capability] - The authorization capability.
+ * @param {object|string} options.capability - The authorization capability.
  * @param {object} options.invocationSigner - An API for signing a capability
  *   invocation.
  * @param {KmsClient} options.kmsClient - The KmsClient to use.
  *
  * @returns {Promise<object>} The new key instance.
  */
-export async function fromCapability<T extends { capability?: Capability }>({
+export async function fromCapability<
+  T extends { capability?: IZcap | string }
+>({
   KeyClass,
   capability,
   invocationSigner,
@@ -45,14 +48,18 @@ export async function fromCapability<T extends { capability?: Capability }>({
     id?: string
     kmsId?: string
     type?: string
-    invocationSigner?: InvocationSigner
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
     keyDescription?: KeyDescription
   }) => T
-  capability?: Capability
-  invocationSigner?: InvocationSigner
+  capability?: IZcap | string
+  invocationSigner?: ISigner
   kmsClient: KmsClient
 }): Promise<T> {
+  if (!capability) {
+    throw new TypeError('"capability" is required.')
+  }
+
   // get key description via capability
   const keyDescription = await kmsClient.getKeyDescription({
     capability,
@@ -61,7 +68,7 @@ export async function fromCapability<T extends { capability?: Capability }>({
 
   // build the key from its description; the capability's invocation target
   // is the key's ID with the KMS (and its public ID, absent a public alias)
-  const kmsId = KmsClient._getInvocationTarget({ capability }) ?? undefined
+  const kmsId = KmsClient._getInvocationTarget({ capability })
   const { id = kmsId, type } = keyDescription
   const key = new KeyClass({
     id,

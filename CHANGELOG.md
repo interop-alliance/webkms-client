@@ -2,13 +2,33 @@
 
 ## 14.5.0 - TBD
 
+### Added
+
+- `CapabilityAgent.getVerificationKeyPair()` -- returns the underlying Ed25519
+  verification key descriptor (with `controller` set to the agent's did:key id)
+  so consumers can derive related keys (e.g. an X25519 key agreement key)
+  without reading the private `_keyPair` field. The descriptor is built via the
+  key class's canonical `toVerificationKey2020()` exporter (so it also carries
+  the key's `id`), and its shape is exported as `VerificationKeyDescriptor`,
+  defined in terms of `IVerificationKeyPair2020` from
+  `@interop/data-integrity-core`.
+- `KmsClient` constructor option `allowInsecureLoopback` (default `true`): set
+  to `false` to disable the development exception that allows plain-`http`
+  invocation targets on loopback hosts.
+
 ### Fixed
 
 - **`Hmac.verify()` no longer caches results by data alone.** The memoize key
   previously omitted the signature, so within the cache TTL a forged signature
   for already-verified data was accepted from the cache (and a valid signature
   after a failed verification was wrongly rejected). The cache key now includes
-  the signature.
+  the signature and is encoded unambiguously (a JSON array), so distinct
+  `(data, signature)` pairs cannot collide on one key.
+- The https-or-loopback-http invocation-target check is now enforced for every
+  KMS request in the shared `_invoke` path -- including targets derived from a
+  `keyId`/`keystoreId` (previously only capability-derived targets were checked,
+  so e.g. `sign({keyId: 'http://any.host/...'})` sent a signed invocation over
+  plain http) and `createKeystore`'s `url`.
 - Base64 decoding of KMS response fields (`wrappedKey`, `unwrappedKey`,
   `signatureValue`, `secret`) now tolerates padded base64url and standard
   (`+`/`/` alphabet) base64 in addition to unpadded base64url. The strict
@@ -24,12 +44,22 @@
   recommended key type for that category, and a custom `type` URL (e.g.
   `urn:webkms:multikey:P-256`) is supported when passed together with
   `category`. A custom `type` without `category`, an unknown category, or a call
-  with neither now throw clear errors.
+  with neither now throw clear errors. A key category name passed via `type`
+  (deprecated) is normalized into `category` first, so it can no longer silently
+  override an explicit, conflicting `category` (such conflicts now throw instead
+  of generating a key of the wrong type server-side).
 - Malformed or empty KMS responses now throw clear, attributed errors
   (`Invalid WebKMS server response: ...`) instead of opaque decode/destructure
   errors: `wrapKey`/`unwrapKey`/`sign`/`deriveSecret` validate the expected
   field before decoding, `verify` requires a boolean `verified`, and
-  `generateKey` requires `keyId` and `keyDescription`.
+  `generateKey` requires `keyId` and `keyDescription`. In addition,
+  `getKeyDescription`, `getKeystore`, `updateKeystore`, and `createKeystore` now
+  require an object response body (checked centrally in `_invoke`), so an empty
+  or HTML body can no longer be returned typed as a config -- or, for key
+  descriptions, memoized in the process-wide cache.
+- The four `fromCapability` factories now throw a clear
+  `"capability" is required.` error when called without a capability, instead of
+  the misleading `"keyId" must be a string.`
 - `AsymmetricKey.getAlgorithm()` called without arguments (or without a
   `keyDescription`) returns `undefined` instead of throwing.
 - `generateKey`'s `maxCapabilityChainLength` validation now rejects
@@ -55,7 +85,10 @@
   hold the Node.js event loop open (for up to 3s) after a cached operation.
 - Collapsed the near-identical `KmsClient` method bodies into shared
   `_invoke`/`_resolveTarget` helpers; the 409-to-`DuplicateError` mapping now
-  lives in the shared error handler. No changes to request or error shapes.
+  lives in the shared error handler. `revokeCapability` and the static
+  `createKeystore` now go through the same helpers, so `createKeystore` also
+  maps a 409 to a `DuplicateError` (message `Duplicate keystore.`). Other
+  request and error shapes are unchanged.
 - The four key classes now share one `fromCapability` implementation
   (`src/keyHelpers.ts`). `Hmac.fromCapability`/`Kek.fromCapability` now prefer
   the key description's `id` (falling back to the capability's invocation
@@ -63,9 +96,15 @@
   classes.
 - `AsymmetricKey.getKeyDescription()` clones via `structuredClone` instead of
   `JSON.parse(JSON.stringify(...))`.
-- Replaced pervasive `any` types with real interfaces -- `Capability`,
-  `InvocationSigner`, `KeyDescription`, `KeystoreConfig`, exported from the
-  package root -- and typed method returns.
+- Replaced pervasive `any` types with real interfaces and typed method returns,
+  using the shared `@interop/data-integrity-core` types (new dependency):
+  capabilities are `IZcap | string`, invocation signers are `ISigner`, and key
+  descriptions are `KeyDescription` (an exported alias for
+  `IPublicKey2020 | IPublicMultikey`). Only `KeystoreConfig` and
+  `KeyDescription` (WebKMS-specific) are defined and exported here.
+- The signer returned by `CapabilityAgent.getSigner()` no longer carries a
+  `type` property (nothing consumed it); it is a plain `ISigner` (`id`,
+  `algorithm`, `sign`).
 - `KmsClient.createKeystore` dropped dead code: the capability-based `url`
   derivation branch (unreachable because `url` is asserted first) and the
   `this.agent` fallback (always undefined in a static method).

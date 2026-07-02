@@ -1,9 +1,10 @@
 /*!
  * Copyright (c) 2019-2024 Digital Bazaar, Inc. All rights reserved.
  */
+import type { ISigner, IZcap } from '@interop/data-integrity-core'
 import { assertNoCapability, fromCapability } from './keyHelpers.js'
 import { KmsClient } from './KmsClient.js'
-import type { Capability, InvocationSigner, KeyDescription } from './types.js'
+import type { KeyDescription } from './types.js'
 
 /**
  * Note: Maps base58-encoded multikey header values to an appropriate JOSE
@@ -33,9 +34,9 @@ export class AsymmetricKey {
   kmsId?: string
   type?: string
   algorithm?: string
-  invocationSigner?: InvocationSigner
+  invocationSigner?: ISigner
   kmsClient: KmsClient
-  capability?: Capability
+  capability?: IZcap | string
   _keyDescription?: KeyDescription
 
   /**
@@ -71,8 +72,8 @@ export class AsymmetricKey {
     id?: string
     kmsId?: string
     type?: string
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
     keyDescription?: KeyDescription
   }) {
@@ -182,7 +183,9 @@ export class AsymmetricKey {
    */
   static getAlgorithm({
     keyDescription
-  }: { keyDescription?: KeyDescription } = {}): string | undefined {
+  }: {
+    keyDescription?: KeyDescription
+  } = {}): string | undefined {
     // presently all supported key types will have a base58-multikey-header
     // value that is only 4 characters long
     const prefix = keyDescription?.publicKeyMultibase?.slice(0, 4)
@@ -210,8 +213,8 @@ export class AsymmetricKey {
     invocationSigner,
     kmsClient = new KmsClient()
   }: {
-    capability?: Capability
-    invocationSigner?: InvocationSigner
+    capability?: IZcap | string
+    invocationSigner?: ISigner
     kmsClient?: KmsClient
   }): Promise<AsymmetricKey> {
     return fromCapability({

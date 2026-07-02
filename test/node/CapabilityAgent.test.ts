@@ -93,3 +93,36 @@ describe('CapabilityAgent.fromSecret', () => {
     ).rejects.toThrow('"handle" must be a string.')
   })
 })
+
+describe('CapabilityAgent.getVerificationKeyPair', () => {
+  it('returns the signing key descriptor with controller set', async () => {
+    const agent = await CapabilityAgent.fromSecret({
+      secret: 'correct horse battery staple',
+      handle: 'urn:example:alice'
+    })
+    const keyPair = agent.getVerificationKeyPair()
+    const fingerprint = agent.id.slice('did:key:'.length)
+    expect(keyPair).toEqual({
+      id: `${agent.id}#${fingerprint}`,
+      type: 'Ed25519VerificationKey2020',
+      controller: agent.id,
+      publicKeyMultibase: expect.stringMatching(/^z6Mk/),
+      privateKeyMultibase: expect.stringMatching(/^z/)
+    })
+  })
+
+  it('throws when key material is absent', () => {
+    const agent = new CapabilityAgent({
+      handle: 'h',
+      signer: {
+        id: 'did:key:z6MkExample#z6MkExample',
+        sign: async () => new Uint8Array()
+      },
+      // @ts-expect-error -- intentionally passing a key pair without material
+      keyPair: {}
+    })
+    expect(() => agent.getVerificationKeyPair()).toThrow(
+      'CapabilityAgent is missing Ed25519 key material'
+    )
+  })
+})

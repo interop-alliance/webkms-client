@@ -1,6 +1,7 @@
 /*!
  * Copyright (c) 2026 Interop Alliance and Dmitri Zagidulin.
  */
+import type { IZcap } from '@interop/data-integrity-core'
 import { describe, it, expect } from 'vitest'
 import { KmsClient } from '../../src/index.js'
 
@@ -10,7 +11,9 @@ describe('KmsClient._getInvocationTarget', () => {
   it('accepts an https invocation target (object capability)', () => {
     const invocationTarget = 'https://kms.example.com/kms/keystores/z123'
     expect(
-      KmsClient._getInvocationTarget({ capability: { invocationTarget } })
+      KmsClient._getInvocationTarget({
+        capability: { invocationTarget } as IZcap
+      })
     ).toBe(invocationTarget)
   })
 
@@ -29,7 +32,9 @@ describe('KmsClient._getInvocationTarget', () => {
       'http://[::1]:3002/kms/keystores/z123'
     ]) {
       expect(
-        KmsClient._getInvocationTarget({ capability: { invocationTarget } })
+        KmsClient._getInvocationTarget({
+          capability: { invocationTarget } as IZcap
+        })
       ).toBe(invocationTarget)
     }
   })
@@ -42,7 +47,9 @@ describe('KmsClient._getInvocationTarget', () => {
       'http://localhost.example.com/kms/keystores/z123'
     ]) {
       expect(() =>
-        KmsClient._getInvocationTarget({ capability: { invocationTarget } })
+        KmsClient._getInvocationTarget({
+          capability: { invocationTarget } as IZcap
+        })
       ).toThrow(TypeError)
     }
   })
@@ -54,7 +61,9 @@ describe('KmsClient._getInvocationTarget', () => {
       'not-a-url'
     ]) {
       expect(() =>
-        KmsClient._getInvocationTarget({ capability: { invocationTarget } })
+        KmsClient._getInvocationTarget({
+          capability: { invocationTarget } as IZcap
+        })
       ).toThrow(TypeError)
     }
   })
