@@ -1,6 +1,6 @@
 {
   "name": "@interop/webkms-client",
-  "version": "14.4.2",
+  "version": "14.5.0",
   "description": "JavaScript WebKMS client",
   "license": "BSD-3-Clause",
   "type": "module",
