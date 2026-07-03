@@ -94,6 +94,104 @@ describe('CapabilityAgent.fromSecret', () => {
   })
 })
 
+describe('CapabilityAgent.seedFromSecret / fromSeed', () => {
+  it('fromSeed(seedFromSecret(...)) equals fromSecret(...)', async () => {
+    const options = {
+      secret: 'correct horse battery staple',
+      handle: 'urn:example:alice',
+      keyName: 'signing'
+    }
+    const fromSecret = await CapabilityAgent.fromSecret(options)
+    const seed = await CapabilityAgent.seedFromSecret(options)
+    const fromSeed = await CapabilityAgent.fromSeed({
+      seed,
+      handle: options.handle,
+      keyName: options.keyName
+    })
+    expect(fromSeed.id).toBe(fromSecret.id)
+    expect(fromSeed.getVerificationKeyPair()).toEqual(
+      fromSecret.getVerificationKeyPair()
+    )
+  })
+
+  it('matches the golden string-secret derivation through the seed path', async () => {
+    // Same golden as the fromSecret suite: proves the seed split did not
+    // change the derivation.
+    const seed = await CapabilityAgent.seedFromSecret({
+      secret: 'correct horse battery staple',
+      handle: 'urn:example:alice'
+    })
+    const agent = await CapabilityAgent.fromSeed({
+      seed,
+      handle: 'urn:example:alice'
+    })
+    expect(agent.id).toBe(
+      'did:key:z6MkiS4sLV7Z3bWoV8PtgrrwDy41H2PciiWYY6jXwCc7RmHh'
+    )
+  })
+
+  it('returns a 32-byte seed', async () => {
+    const seed = await CapabilityAgent.seedFromSecret({
+      secret: 's3cr3t',
+      handle: 'h'
+    })
+    expect(seed).toBeInstanceOf(Uint8Array)
+    expect(seed.length).toBe(32)
+  })
+
+  it('fromSeed does NOT equal fromSecret fed the seed as a secret', async () => {
+    // The two entrances are not interchangeable: fromSecret would hash the
+    // seed again.
+    const seed = await CapabilityAgent.seedFromSecret({
+      secret: 's3cr3t',
+      handle: 'h'
+    })
+    const viaSeed = await CapabilityAgent.fromSeed({ seed, handle: 'h' })
+    const viaSecret = await CapabilityAgent.fromSecret({
+      secret: seed,
+      handle: 'h'
+    })
+    expect(viaSeed.id).not.toBe(viaSecret.id)
+  })
+
+  it('derives different keys for different keyNames from one seed', async () => {
+    const seed = await CapabilityAgent.seedFromSecret({
+      secret: 's3cr3t',
+      handle: 'h'
+    })
+    const a = await CapabilityAgent.fromSeed({ seed, handle: 'h' })
+    const b = await CapabilityAgent.fromSeed({
+      seed,
+      handle: 'h',
+      keyName: 'signing'
+    })
+    expect(a.id).not.toBe(b.id)
+  })
+
+  it('rejects a non-Uint8Array seed', async () => {
+    await expect(
+      // @ts-expect-error -- intentionally passing an invalid seed type
+      CapabilityAgent.fromSeed({ seed: 's3cr3t', handle: 'h' })
+    ).rejects.toThrow('"seed" must be a non-empty Uint8Array.')
+  })
+
+  it('rejects an empty seed', async () => {
+    await expect(
+      CapabilityAgent.fromSeed({ seed: new Uint8Array(0), handle: 'h' })
+    ).rejects.toThrow('"seed" must be a non-empty Uint8Array.')
+  })
+
+  it('rejects a non-string handle', async () => {
+    await expect(
+      CapabilityAgent.fromSeed({
+        seed: new Uint8Array(32),
+        // @ts-expect-error -- intentionally passing an invalid handle type
+        handle: 42
+      })
+    ).rejects.toThrow('"handle" must be a string.')
+  })
+})
+
 describe('CapabilityAgent.getVerificationKeyPair', () => {
   it('returns the signing key descriptor with controller set', async () => {
     const agent = await CapabilityAgent.fromSecret({

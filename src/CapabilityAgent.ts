@@ -118,6 +118,10 @@ export class CapabilityAgent {
    * handle to uniquely identify the secret, and a key name. The same secret
    * can be used to generate multiple keys by using different key names.
    *
+   * Equivalent to `seedFromSecret()` followed by `fromSeed()`; use those
+   * directly to capture the intermediate seed (e.g. to store it wrapped so
+   * the same agent can later be reconstituted without the secret).
+   *
    * @param {object} options - The options to use.
    * @param {string|Uint8Array} [options.secret] - A secret to use as input
    *   when generating the key, e.g., a bcrypt hash of a password.
@@ -139,6 +143,31 @@ export class CapabilityAgent {
     handle: string
     keyName?: string
   }): Promise<CapabilityAgent> {
+    const seed = await CapabilityAgent.seedFromSecret({ secret, handle })
+    return CapabilityAgent.fromSeed({ seed, handle, keyName })
+  }
+
+  /**
+   * Computes the deterministic seed `fromSecret()` derives its keys from: the
+   * SHA-256 hash of the secret salted with the handle. Exposed so callers can
+   * persist the seed (suitably encrypted) and later reconstitute the same
+   * agent via `fromSeed()` without the original secret.
+   *
+   * @param {object} options - The options to use.
+   * @param {string|Uint8Array} [options.secret] - A secret to use as input
+   *   when generating the key, e.g., a bcrypt hash of a password.
+   * @param {string} options.handle - A semantic identifier for the secret
+   *   that is mixed with it like a salt to produce the seed.
+   *
+   * @returns {Promise<Uint8Array>} The 32-byte seed.
+   */
+  static async seedFromSecret({
+    secret,
+    handle
+  }: {
+    secret?: string | Uint8Array
+    handle: string
+  }): Promise<Uint8Array> {
     if (typeof handle !== 'string') {
       throw new TypeError('"handle" must be a string.')
     }
@@ -149,7 +178,44 @@ export class CapabilityAgent {
     }
 
     // compute salted SHA-256 hash as the seed for the key
-    const seed = await _computeSaltedHash({ secret, salt: handle })
+    return _computeSaltedHash({ secret, salt: handle })
+  }
+
+  /**
+   * Deterministically generates a CapabilityAgent from an already-derived
+   * seed (see `seedFromSecret()`), skipping the secret-hashing step: the same
+   * seed and key name always reconstitute the same agent, so a stored seed
+   * stands in for the original secret. Note the seed enters the derivation
+   * as-is -- passing it to `fromSecret()` instead would hash it again and
+   * yield a different agent.
+   *
+   * @param {object} options - The options to use.
+   * @param {Uint8Array} options.seed - The seed to derive the key from, as
+   *   produced by `seedFromSecret()`.
+   * @param {string} options.handle - The semantic identifier for the secret
+   *   the seed was derived from (identifies the agent; it does not affect
+   *   the key, which the seed already encodes).
+   * @param {string} [options.keyName='default'] - An optional name to use to
+   *   generate the key.
+   *
+   * @returns {Promise<CapabilityAgent>} The new CapabilityAgent instance.
+   */
+  static async fromSeed({
+    seed,
+    handle,
+    keyName = 'default'
+  }: {
+    seed: Uint8Array
+    handle: string
+    keyName?: string
+  }): Promise<CapabilityAgent> {
+    if (typeof handle !== 'string') {
+      throw new TypeError('"handle" must be a string.')
+    }
+    if (!(seed instanceof Uint8Array) || seed.length === 0) {
+      throw new TypeError('"seed" must be a non-empty Uint8Array.')
+    }
+
     const { signer, keyPair } = await _keyFromSeedAndName({ seed, keyName })
     return new CapabilityAgent({ handle, signer, keyPair })
   }

@@ -1,5 +1,18 @@
 # webkms-client ChangeLog
 
+## 14.6.0 - TBD
+
+### Added
+
+- `CapabilityAgent.seedFromSecret()` and `CapabilityAgent.fromSeed()` -- the two
+  halves of `fromSecret()`, exposed separately: `seedFromSecret()` returns the
+  32-byte salted-hash seed a secret derives to, and `fromSeed()` reconstitutes
+  an agent from that seed directly (skipping the hashing step). Together they
+  let a caller persist the seed (suitably encrypted) and later rebuild the same
+  agent -- same key pair, same did:key id -- without the original secret.
+  `fromSecret()` is now the composition of the two; its derivation is
+  byte-identical to before.
+
 ## 14.5.0 - 2026-07-02
 
 ### Added
