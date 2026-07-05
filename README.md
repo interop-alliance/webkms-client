@@ -75,6 +75,10 @@ pnpm run test:browser  # browser tests only (run `pnpm exec playwright install c
 <dt><a href="#webkms_getKeyDescription">webkms:getKeyDescription(options)</a> ⇒ <code>Promise.&lt;object&gt;</code></dt>
 <dd><p>Gets the key description for the given key ID.</p>
 </dd>
+<dt><a href="#webkms_listKeys">webkms:listKeys(options)</a> ⇒ <code>Promise.&lt;Array&gt;</code></dt>
+<dd><p>Lists the public key descriptions in a keystore (a fork extension beyond
+upstream webkms-switch).</p>
+</dd>
 <dt><a href="#webkms_revokeCapability">webkms:revokeCapability(options)</a> ⇒ <code>Promise.&lt;object&gt;</code></dt>
 <dd><p>Store a capability revocation.</p>
 </dd>
@@ -173,6 +177,28 @@ key description.
 | [options.keyId]          | <code>string</code> | The ID of the key.                                                                      |
 | [options.capability]     | <code>string</code> | The authorization capability to use to authorize the invocation of this operation.      |
 | options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation. |
+
+<a name="webkms_listKeys"></a>
+
+### webkms:listKeys(options) ⇒ <code>Promise.&lt;Array&gt;</code>
+
+Lists the public key descriptions in a keystore (a fork extension beyond
+upstream webkms-switch). Follows the server's `next` cursor to exhaustion and
+returns every key's description, sorted by the server's local id. Never returns
+secret material.
+
+`KeystoreAgent.listKeys()` is a convenience wrapper over this method that uses
+the agent's keystore and signer.
+
+**Kind**: global function **Returns**: <code>Promise.&lt;Array&gt;</code> - The
+keystore's public key descriptions.
+
+| Param                    | Type                | Description                                                                                                                                                                                             |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| options                  | <code>object</code> | The options to use.                                                                                                                                                                                     |
+| [options.capability]     | <code>string</code> | The authorization capability to authorize the invocation; the keystore's root zcap is used if not provided. A delegated capability's `invocationTarget` must be the `<keystoreId>/keys` collection URL. |
+| options.invocationSigner | <code>object</code> | An API with an `id` property and a `sign` function for signing a capability invocation.                                                                                                                 |
+| [options.maxPages]       | <code>number</code> | Safety cap on pages followed (default `1000`), to bound a server that never terminates the cursor.                                                                                                      |
 
 <a name="webkms_revokeCapability"></a>
 

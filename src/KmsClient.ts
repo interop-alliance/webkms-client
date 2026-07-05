@@ -240,6 +240,103 @@ export class KmsClient {
   }
 
   /**
+   * Lists the public key descriptions in a keystore (a fork extension beyond
+   * upstream webkms-switch). Follows the server's `next` cursor to exhaustion
+   * and returns every key's description, sorted by the server's local id.
+   * Never returns secret material.
+   *
+   * @alias webkms.listKeys
+   *
+   * @param {object} options - The options to use.
+   * @param {string} [options.capability] - The authorization capability to
+   *   authorize the invocation; the keystore's root zcap is used if not
+   *   provided (requires `keystoreId` on the client). A delegated capability's
+   *   `invocationTarget` must be the `<keystoreId>/keys` collection URL.
+   * @param {object} options.invocationSigner - An API with an `id` property and
+   *   a `sign` function for signing a capability invocation.
+   * @param {number} [options.maxPages=1000] - Safety cap on pages followed, to
+   *   bound a buggy/hostile server that never terminates the cursor.
+   *
+   * @returns {Promise<Array>} The keystore's public key descriptions.
+   */
+  async listKeys({
+    capability,
+    invocationSigner,
+    maxPages = 1000
+  }: {
+    capability?: IZcap | string
+    invocationSigner?: ISigner
+    maxPages?: number
+  }): Promise<KeyDescription[]> {
+    _assert(invocationSigner, 'invocationSigner', 'object')
+
+    // resolve the first-page target, mirroring `generateKey`; the same
+    // capability (root or delegated) is reused for every page
+    let target
+    if (capability) {
+      target = _resolveTarget({ capability })
+    } else {
+      const { keystoreId } = this
+      if (!keystoreId) {
+        throw new TypeError(
+          '"capability" is required if "keystoreId" was not provided to the ' +
+            'KmsClient constructor.'
+        )
+      }
+      // keys are listed under the keystore's `/keys` collection
+      target = _resolveTarget({ keystoreId })
+      target.url = `${target.url}/keys`
+    }
+
+    // the `next` cursor is origin-relative; a signed invocation must never be
+    // coaxed off the keystore origin by a hostile/buggy server
+    const keystoreOrigin = new URL(target.url).origin
+
+    const keys: KeyDescription[] = []
+    let url = target.url
+    for (let page = 0; ; page++) {
+      if (page >= maxPages) {
+        throw new Error(
+          `Refusing to follow more than ${maxPages} list-keys pages.`
+        )
+      }
+      const data = (await this._invoke({
+        url,
+        capability: target.capability,
+        method: 'get',
+        invocationSigner,
+        capabilityAction: 'read',
+        message: 'Error listing keys.',
+        notFoundMessage: 'Keystore not found.',
+        expect: 'object'
+      })) as { results?: unknown; next?: unknown }
+
+      if (!Array.isArray(data.results)) {
+        throw new Error('Invalid WebKMS server response: missing "results".')
+      }
+      keys.push(...(data.results as KeyDescription[]))
+
+      if (data.next === undefined) {
+        break
+      }
+      if (typeof data.next !== 'string') {
+        throw new Error(
+          'Invalid WebKMS server response: "next" must be a string.'
+        )
+      }
+      const nextUrl = new URL(data.next, url)
+      if (nextUrl.origin !== keystoreOrigin) {
+        throw new Error(
+          'Refusing to follow a cross-origin list-keys "next" ' +
+            `(${nextUrl.origin}).`
+        )
+      }
+      url = nextUrl.toString()
+    }
+    return keys
+  }
+
+  /**
    * Revoke a delegated capability.
    *
    * @alias webkms.revokeCapability

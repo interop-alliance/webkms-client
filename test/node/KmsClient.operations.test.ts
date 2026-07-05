@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { base64urlnopad } from '@scure/base'
+import type { IZcap } from '@interop/data-integrity-core'
 
 const { postMock, getMock, signInvocationMock } = vi.hoisted(() => ({
   postMock: vi.fn(),
@@ -336,6 +337,143 @@ describe('KmsClient operations (mocked transport)', () => {
         expect.objectContaining({ url: keyId })
       )
       expect(getMock).toHaveBeenCalledWith(keyId, expect.anything())
+    })
+  })
+
+  describe('listKeys', () => {
+    const d1 = { id: `${keyId}`, type: 'Multikey', publicKeyMultibase: 'z1' }
+    const d2 = { id: `${keystoreId}/keys/z3`, type: 'Multikey' }
+
+    it('returns a single page and targets <keystoreId>/keys with read', async () => {
+      getMock.mockResolvedValue({ data: { results: [d1, d2] } })
+      const client2 = new KmsClient({ keystoreId })
+      const result = await client2.listKeys({ invocationSigner })
+      expect(result).toEqual([d1, d2])
+      expect(getMock).toHaveBeenCalledWith(
+        `${keystoreId}/keys`,
+        expect.anything()
+      )
+      expect(signInvocationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: `${keystoreId}/keys`,
+          capabilityAction: 'read'
+        })
+      )
+    })
+
+    it('returns an empty array for an empty keystore', async () => {
+      getMock.mockResolvedValue({ data: { results: [] } })
+      const client2 = new KmsClient({ keystoreId })
+      await expect(client2.listKeys({ invocationSigner })).resolves.toEqual([])
+    })
+
+    it('auto-follows the "next" cursor to exhaustion', async () => {
+      getMock
+        .mockResolvedValueOnce({
+          data: { results: [d1], next: '/kms/keystores/z1/keys?cursor=abc' }
+        })
+        .mockResolvedValueOnce({ data: { results: [d2] } })
+      const client2 = new KmsClient({ keystoreId })
+      const result = await client2.listKeys({ invocationSigner })
+      expect(result).toEqual([d1, d2])
+      // the origin-relative cursor resolves against the keystore origin
+      expect(getMock).toHaveBeenNthCalledWith(
+        2,
+        'https://kms.example.com/kms/keystores/z1/keys?cursor=abc',
+        expect.anything()
+      )
+    })
+
+    it('uses a delegated capability for every page', async () => {
+      const capability = {
+        id: 'urn:zcap:delegated:z9',
+        invocationTarget: `${keystoreId}/keys`
+      } as IZcap
+      getMock
+        .mockResolvedValueOnce({
+          data: { results: [d1], next: '/kms/keystores/z1/keys?cursor=abc' }
+        })
+        .mockResolvedValueOnce({ data: { results: [d2] } })
+      const result = await client.listKeys({ capability, invocationSigner })
+      expect(result).toEqual([d1, d2])
+      expect(getMock).toHaveBeenCalledWith(
+        `${keystoreId}/keys`,
+        expect.anything()
+      )
+      // the same delegated capability is passed to the signer on each page
+      expect(signInvocationMock).toHaveBeenCalledTimes(2)
+      expect(signInvocationMock).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ capability })
+      )
+      expect(signInvocationMock).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ capability })
+      )
+    })
+
+    it('rejects a response missing the "results" array', async () => {
+      getMock.mockResolvedValue({ data: {} })
+      const client2 = new KmsClient({ keystoreId })
+      await expect(client2.listKeys({ invocationSigner })).rejects.toThrow(
+        'Invalid WebKMS server response: missing "results".'
+      )
+    })
+
+    it('rejects a non-string "next"', async () => {
+      getMock.mockResolvedValue({ data: { results: [], next: 5 } })
+      const client2 = new KmsClient({ keystoreId })
+      await expect(client2.listKeys({ invocationSigner })).rejects.toThrow(
+        'Invalid WebKMS server response: "next" must be a string.'
+      )
+    })
+
+    it('refuses a cross-origin "next"', async () => {
+      getMock.mockResolvedValue({
+        data: {
+          results: [d1],
+          next: 'https://evil.example/kms/keystores/z1/keys?cursor=x'
+        }
+      })
+      const client2 = new KmsClient({ keystoreId })
+      await expect(client2.listKeys({ invocationSigner })).rejects.toThrow(
+        /cross-origin/
+      )
+    })
+
+    it('enforces the maxPages guard', async () => {
+      let cursor = 0
+      getMock.mockImplementation(async () => ({
+        data: {
+          results: [d1],
+          next: `/kms/keystores/z1/keys?cursor=${cursor++}`
+        }
+      }))
+      const client2 = new KmsClient({ keystoreId })
+      await expect(
+        client2.listKeys({ invocationSigner, maxPages: 3 })
+      ).rejects.toThrow(/more than 3/)
+      expect(getMock).toHaveBeenCalledTimes(3)
+    })
+
+    it('maps a 404 to a clear not-found error', async () => {
+      getMock.mockRejectedValue(
+        Object.assign(new Error('gone'), { status: 404 })
+      )
+      const client2 = new KmsClient({ keystoreId })
+      await expect(
+        client2.listKeys({ invocationSigner })
+      ).rejects.toMatchObject({
+        message: 'Error listing keys: Keystore not found.',
+        status: 404
+      })
+    })
+
+    it('requires a keystoreId or capability', async () => {
+      await expect(client.listKeys({ invocationSigner })).rejects.toThrow(
+        /capability.*required/
+      )
+      expect(getMock).not.toHaveBeenCalled()
     })
   })
 })

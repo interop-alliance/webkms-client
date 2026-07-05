@@ -9,7 +9,7 @@ import { Kek } from './Kek.js'
 import { KeyAgreementKey } from './KeyAgreementKey.js'
 import { KmsClient } from './KmsClient.js'
 import { RECOMMENDED_KEYS } from './recommendedKeys.js'
-import type { KeystoreConfig } from './types.js'
+import type { KeyDescription, KeystoreConfig } from './types.js'
 
 const VERSIONS = ['recommended', 'fips']
 
@@ -378,6 +378,23 @@ export class KeystoreAgent {
     const { capabilityAgent, kmsClient } = this
     const invocationSigner = capabilityAgent.getSigner()
     return kmsClient.updateKeystore({ capability, config, invocationSigner })
+  }
+
+  /**
+   * Lists the public key descriptions in this agent's keystore.
+   *
+   * @param {object} [options] - The options to use.
+   * @param {object} [options.capability] - The authorization capability to use;
+   *   the keystore's root zcap is used if not provided.
+   *
+   * @returns {Promise<Array>} The keystore's public key descriptions.
+   */
+  async listKeys({ capability }: { capability?: IZcap | string } = {}): Promise<
+    KeyDescription[]
+  > {
+    const { capabilityAgent, kmsClient } = this
+    const invocationSigner = capabilityAgent.getSigner()
+    return kmsClient.listKeys({ capability, invocationSigner })
   }
 }
 
