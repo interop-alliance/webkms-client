@@ -1,6 +1,6 @@
 # webkms-client ChangeLog
 
-## Unreleased - TBD
+## 14.7.0 - 2026-07-05
 
 ### Added
 
