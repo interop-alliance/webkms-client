@@ -1,5 +1,19 @@
 # webkms-client ChangeLog
 
+## 14.7.1 - TBD
+
+### Changed
+
+- `KmsClient.listKeys()` / `KeystoreAgent.listKeys()` now return
+  `ListedKeyDescription[]` (a new exported type): the key description plus a
+  required `keyUrl`, the key's canonical invocation URL
+  (`<keystoreId>/keys/<localId>`), which the server stamps on every list entry
+  -- the `publicAlias` / `publicAliasTemplate` override rewrites `id`, erasing
+  exactly the signable handle a recovery client lists keys to rediscover.
+  Type-level only: the entries always passed the field through verbatim at
+  runtime. Requires a server with the list-entry `keyUrl` projection
+  (was-teaching-server's K5 fix).
+
 ## 14.7.0 - 2026-07-05
 
 ### Added

@@ -185,7 +185,11 @@ key description.
 Lists the public key descriptions in a keystore (a fork extension beyond
 upstream webkms-switch). Follows the server's `next` cursor to exhaustion and
 returns every key's description, sorted by the server's local id. Never returns
-secret material.
+secret material. Each entry additionally carries `keyUrl`, the key's canonical
+invocation URL (`<keystoreId>/keys/<localId>`) -- the handle a `publicAlias` /
+`publicAliasTemplate` override erases from `id`, and the value to record as a
+key's `kmsId` when recovering lost key references (`ListedKeyDescription` in
+`types.ts`).
 
 `KeystoreAgent.listKeys()` is a convenience wrapper over this method that uses
 the agent's keystore and signer.

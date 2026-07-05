@@ -6,7 +6,11 @@ import { DEFAULT_HEADERS, httpClient } from '@interop/http-client'
 import { LruCache } from '@interop/lru-memoize'
 import { signCapabilityInvocation } from '@interop/http-signature-zcap-invoke'
 import type { ISigner, IZcap } from '@interop/data-integrity-core'
-import type { KeyDescription, KeystoreConfig } from './types.js'
+import type {
+  KeyDescription,
+  KeystoreConfig,
+  ListedKeyDescription
+} from './types.js'
 
 const ZCAP_ROOT_PREFIX = 'urn:zcap:root:'
 
@@ -243,7 +247,10 @@ export class KmsClient {
    * Lists the public key descriptions in a keystore (a fork extension beyond
    * upstream webkms-switch). Follows the server's `next` cursor to exhaustion
    * and returns every key's description, sorted by the server's local id.
-   * Never returns secret material.
+   * Never returns secret material. Each entry additionally carries `keyUrl`,
+   * the key's canonical invocation URL -- the handle a `publicAlias` /
+   * `publicAliasTemplate` override erases from `id`, and the value to record
+   * as a key's `kmsId` when recovering lost key references.
    *
    * @alias webkms.listKeys
    *
@@ -267,7 +274,7 @@ export class KmsClient {
     capability?: IZcap | string
     invocationSigner?: ISigner
     maxPages?: number
-  }): Promise<KeyDescription[]> {
+  }): Promise<ListedKeyDescription[]> {
     _assert(invocationSigner, 'invocationSigner', 'object')
 
     // resolve the first-page target, mirroring `generateKey`; the same
@@ -292,7 +299,7 @@ export class KmsClient {
     // coaxed off the keystore origin by a hostile/buggy server
     const keystoreOrigin = new URL(target.url).origin
 
-    const keys: KeyDescription[] = []
+    const keys: ListedKeyDescription[] = []
     let url = target.url
     for (let page = 0; ; page++) {
       if (page >= maxPages) {
@@ -314,7 +321,7 @@ export class KmsClient {
       if (!Array.isArray(data.results)) {
         throw new Error('Invalid WebKMS server response: missing "results".')
       }
-      keys.push(...(data.results as KeyDescription[]))
+      keys.push(...(data.results as ListedKeyDescription[]))
 
       if (data.next === undefined) {
         break

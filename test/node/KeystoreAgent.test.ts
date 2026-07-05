@@ -171,7 +171,9 @@ describe('KeystoreAgent.generateKey', () => {
 
 describe('KeystoreAgent.listKeys', () => {
   function createAgentWithListKeys() {
-    const keys = [{ id: keyId, type: 'Multikey', publicKeyMultibase: 'z1' }]
+    const keys = [
+      { id: keyId, keyUrl: keyId, type: 'Multikey', publicKeyMultibase: 'z1' }
+    ]
     const listKeys = vi.fn(async () => keys)
     const kmsClient = { listKeys } as unknown as KmsClient
     const capabilityAgent = {
