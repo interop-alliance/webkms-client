@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Interop Alliance and Dmitri Zagidulin.
  */
 import { describe, it, expect, vi } from 'vitest'
+import type { IZcap } from '@interop/data-integrity-core'
 import {
   AsymmetricKey,
   Hmac,
@@ -165,5 +166,39 @@ describe('KeystoreAgent.generateKey', () => {
       `Generated key "${keyId}" exists in the keystore`
     )
     expect(error.cause.message).toContain('Unknown key type')
+  })
+})
+
+describe('KeystoreAgent.listKeys', () => {
+  function createAgentWithListKeys() {
+    const keys = [{ id: keyId, type: 'Multikey', publicKeyMultibase: 'z1' }]
+    const listKeys = vi.fn(async () => keys)
+    const kmsClient = { listKeys } as unknown as KmsClient
+    const capabilityAgent = {
+      getSigner: () => invocationSigner
+    } as unknown as CapabilityAgent
+    const agent = new KeystoreAgent({ capabilityAgent, keystoreId, kmsClient })
+    return { agent, listKeys, keys }
+  }
+
+  it('forwards to kmsClient.listKeys with the agent signer', async () => {
+    const { agent, listKeys, keys } = createAgentWithListKeys()
+    const result = await agent.listKeys()
+    expect(result).toBe(keys)
+    expect(listKeys).toHaveBeenCalledWith(
+      expect.objectContaining({ invocationSigner })
+    )
+  })
+
+  it('passes a supplied capability straight through', async () => {
+    const { agent, listKeys } = createAgentWithListKeys()
+    const capability = {
+      id: 'urn:zcap:delegated:z9',
+      invocationTarget: `${keystoreId}/keys`
+    } as IZcap
+    await agent.listKeys({ capability })
+    expect(listKeys).toHaveBeenCalledWith(
+      expect.objectContaining({ capability, invocationSigner })
+    )
   })
 })

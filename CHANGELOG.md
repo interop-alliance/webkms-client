@@ -1,5 +1,17 @@
 # webkms-client ChangeLog
 
+## Unreleased - TBD
+
+### Added
+
+- `KmsClient.listKeys()` and `KeystoreAgent.listKeys()` -- enumerate a
+  keystore's public key descriptions (a fork extension beyond upstream
+  webkms-switch; server: `GET <keystoreId>/keys`). Zcap-signed `read` against
+  the keystore controller, auto-follows the server's `next` cursor to
+  exhaustion, returns `KeyDescription[]` sorted by local id, never any secret
+  field. A recovery-path operation (rediscover a lost key id, adopt orphaned
+  keys); not cached.
+
 ## 14.6.0 - 2026-07-02
 
 ### Added
