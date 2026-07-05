@@ -341,14 +341,29 @@ describe('KmsClient operations (mocked transport)', () => {
   })
 
   describe('listKeys', () => {
-    const d1 = { id: `${keyId}`, type: 'Multikey', publicKeyMultibase: 'z1' }
-    const d2 = { id: `${keystoreId}/keys/z3`, type: 'Multikey' }
+    // list entries carry `keyUrl`, the canonical invocation URL -- on d1 it
+    // differs from the alias-overridden `id`, on d2 it duplicates it
+    const d1 = {
+      id: 'did:key:z1#z1',
+      keyUrl: `${keyId}`,
+      type: 'Multikey',
+      publicKeyMultibase: 'z1'
+    }
+    const d2 = {
+      id: `${keystoreId}/keys/z3`,
+      keyUrl: `${keystoreId}/keys/z3`,
+      type: 'Multikey'
+    }
 
     it('returns a single page and targets <keystoreId>/keys with read', async () => {
       getMock.mockResolvedValue({ data: { results: [d1, d2] } })
       const client2 = new KmsClient({ keystoreId })
       const result = await client2.listKeys({ invocationSigner })
       expect(result).toEqual([d1, d2])
+      // `keyUrl` survives the passthrough and is typed on the returned
+      // entries (no cast needed to read it)
+      const keyUrls: string[] = result.map(entry => entry.keyUrl)
+      expect(keyUrls).toEqual([keyId, `${keystoreId}/keys/z3`])
       expect(getMock).toHaveBeenCalledWith(
         `${keystoreId}/keys`,
         expect.anything()

@@ -15,4 +15,8 @@ export { Kek } from './Kek.js'
 export { KeyAgreementKey } from './KeyAgreementKey.js'
 export { KeystoreAgent } from './KeystoreAgent.js'
 export { KmsClient } from './KmsClient.js'
-export type { KeyDescription, KeystoreConfig } from './types.js'
+export type {
+  KeyDescription,
+  KeystoreConfig,
+  ListedKeyDescription
+} from './types.js'
