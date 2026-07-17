@@ -1,5 +1,11 @@
 # webkms-client ChangeLog
 
+## 14.7.2 - 2026-07
+
+### Changed
+
+- Update to `@interop/data-integrity-core@8.3.0` and related.
+
 ## 14.7.1 - 2026-07-05
 
 ### Changed
