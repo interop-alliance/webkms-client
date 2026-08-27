@@ -1,6 +1,6 @@
 # webkms-client ChangeLog
 
-## 14.7.4 - TBD
+## 14.7.4 - 2026-08-27
 
 ### Changed
 - Update to latest `@interop/http-signature-zcap-invoke@6.2.6`.
