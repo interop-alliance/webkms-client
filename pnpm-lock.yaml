@@ -18,8 +18,8 @@ importers:
         specifier: ^1.0.5
         version: 1.0.5
       '@interop/http-signature-zcap-invoke':
-        specifier: ^6.2.4
-        version: 6.2.4
+        specifier: ^6.2.6
+        version: 6.2.6
       '@interop/lru-memoize':
         specifier: ^4.0.3
         version: 4.0.3
@@ -158,10 +158,6 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@interop/data-integrity-core@8.3.0':
-    resolution: {integrity: sha512-8rYHqCHbYub8hh16HvQrJ8ozXHhv+t/gC0f6/JN9CLOdyL3EUTZOyKHjOKDRaelxjIplQG61LIUxGL3ihF1aXQ==}
-    engines: {node: '>=24.0'}
-
   '@interop/data-integrity-core@8.7.1':
     resolution: {integrity: sha512-KD/AFAfnsDVa7Kz3yzx0t/L1A+GlFI0RahbtXsfzcznRlN63fPZCJ6W3C+unPyksCYsILZIHcOFFJkZe6eKtkw==}
     engines: {node: '>=24.0'}
@@ -179,8 +175,8 @@ packages:
     resolution: {integrity: sha512-t/zL0+mQOjNkzj6usOv6MCOvG/HVOH1GG8Dbp03ympkf4NVOaJavBBJZuE05Xi1Sp4izmjHydDwnJLlzkZpzXQ==}
     engines: {node: '>=22.12'}
 
-  '@interop/http-digest-header@3.0.0':
-    resolution: {integrity: sha512-TImKkogQnjiQrqSQ/ZD8OZEGfB7sFy8qFl26mR5IAutzXi8n4vRkz7pUqGOjvpWRY5Xb9stHOqxV5kgKKjcG1g==}
+  '@interop/http-digest-header@3.1.0':
+    resolution: {integrity: sha512-rlcXBuKk9YHu2btFTIQOAOSi2FtBpL7SKQVkG4wzxpwMIa0wPIeA9hz4wj4QZrbbpqBPDGZRXXsLZ2ozEYTuaA==}
     engines: {node: '>=24.0'}
     peerDependencies:
       expo-crypto: '>=13'
@@ -188,12 +184,12 @@ packages:
       expo-crypto:
         optional: true
 
-  '@interop/http-signature-header@5.0.2':
-    resolution: {integrity: sha512-Sd+wNfMCvkxvNUoV+VoLfwn+IjTdtk0T1j/tQqxUiYUOkmS0V24O3ENiwCWfgUNkmmGIhlno9VIzLzd9mDwRkw==}
+  '@interop/http-signature-header@5.0.3':
+    resolution: {integrity: sha512-fe9waxlrnOOSxlpUeQUAHAf1bT0zTQkLF74m1i6/ok8OgMN8IkY07dsPHK6xPEQjSNASerq03spf60VHUVu9+Q==}
     engines: {node: '>=14'}
 
-  '@interop/http-signature-zcap-invoke@6.2.4':
-    resolution: {integrity: sha512-X95N3RhTg/+5L3daWZR69LbOtUtoPkH1XKtueqEc1/MhQ5sSMF0JDYQLd3xu905Ppmdw3mWr2Fn1txlhsBYMhw==}
+  '@interop/http-signature-zcap-invoke@6.2.6':
+    resolution: {integrity: sha512-GE4+yi+uvBN+6XDNASOavZfauZGUDF9GupmNtzZc2Lv/Wr2kdeqoIrw4Jkl/iVnuwkt37AccVqKI7K9EOER/tw==}
     engines: {node: '>=20'}
 
   '@interop/lru-memoize@4.0.3':
@@ -1150,8 +1146,6 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@interop/data-integrity-core@8.3.0': {}
-
   '@interop/data-integrity-core@8.7.1':
     dependencies:
       '@scure/base': 2.3.0
@@ -1168,15 +1162,15 @@ snapshots:
       ky: 1.14.3
       undici: 7.28.0
 
-  '@interop/http-digest-header@3.0.0': {}
+  '@interop/http-digest-header@3.1.0': {}
 
-  '@interop/http-signature-header@5.0.2': {}
+  '@interop/http-signature-header@5.0.3': {}
 
-  '@interop/http-signature-zcap-invoke@6.2.4':
+  '@interop/http-signature-zcap-invoke@6.2.6':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
-      '@interop/http-digest-header': 3.0.0
-      '@interop/http-signature-header': 5.0.2
+      '@interop/data-integrity-core': 8.7.1
+      '@interop/http-digest-header': 3.1.0
+      '@interop/http-signature-header': 5.0.3
       pako: 2.2.0
     transitivePeerDependencies:
       - expo-crypto
