@@ -1,6 +1,6 @@
 # webkms-client ChangeLog
 
-## 14.7.5 - TBD
+## 14.7.5 - 2026-09-05
 
 ### Changed
 
