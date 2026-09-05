@@ -12,8 +12,8 @@ importers:
         specifier: ^8.7.1
         version: 8.7.1
       '@interop/ed25519-verification-key':
-        specifier: ^8.0.4
-        version: 8.0.4
+        specifier: ^8.1.0
+        version: 8.1.0
       '@interop/http-client':
         specifier: ^1.0.5
         version: 1.0.5
@@ -162,8 +162,8 @@ packages:
     resolution: {integrity: sha512-KD/AFAfnsDVa7Kz3yzx0t/L1A+GlFI0RahbtXsfzcznRlN63fPZCJ6W3C+unPyksCYsILZIHcOFFJkZe6eKtkw==}
     engines: {node: '>=24.0'}
 
-  '@interop/ed25519-verification-key@8.0.4':
-    resolution: {integrity: sha512-Rban9niHY+MJSj3xrgsOmhYIzHz1TjmCsqOrrsyKr+Uk+xNwK1P9QA7RoR7wwjZ98o1rkD0wTl23wga81oY7hw==}
+  '@interop/ed25519-verification-key@8.1.0':
+    resolution: {integrity: sha512-kj8aYyTTxBofETxKmKDbrjXyAHAsXLxnfMLwumu2BYjPfwKBN8QxUkEeeKa0x1wovGIefcTAsuASGMYC4Y2TUg==}
     engines: {node: '>=20'}
     peerDependencies:
       react-native-get-random-values: '>=1.8.0'
@@ -1150,12 +1150,12 @@ snapshots:
     dependencies:
       '@scure/base': 2.3.0
 
-  '@interop/ed25519-verification-key@8.0.4':
+  '@interop/ed25519-verification-key@8.1.0':
     dependencies:
       '@interop/data-integrity-core': 8.7.1
       '@noble/ed25519': 3.1.0
       '@noble/hashes': 2.2.0
-      '@scure/base': 2.2.0
+      '@scure/base': 2.3.0
 
   '@interop/http-client@1.0.5':
     dependencies:
