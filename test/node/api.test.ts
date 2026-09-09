@@ -8,7 +8,6 @@ describe('webkms-client API', () => {
   it('should have proper exports', async () => {
     expect(kmsClient).toBeDefined()
     expect(kmsClient.AsymmetricKey).toBeDefined()
-    expect(kmsClient.CapabilityAgent).toBeDefined()
     expect(kmsClient.Hmac).toBeDefined()
     expect(kmsClient.Kek).toBeDefined()
     expect(kmsClient.KeyAgreementKey).toBeDefined()

@@ -1,5 +1,14 @@
 # webkms-client ChangeLog
 
+## 15.0.0 - TBD
+
+### Changed
+
+- **BREAKING**: `CapabilityAgent` and `VerificationKeyDescriptor` moved to the
+  new `@interop/capability-agent` package and are no longer exported from here.
+  Import them from `@interop/capability-agent`.
+- Drop the now-unused `@interop/ed25519-verification-key` dependency.
+
 ## 14.7.5 - 2026-09-05
 
 ### Changed

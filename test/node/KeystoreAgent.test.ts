@@ -10,11 +10,8 @@ import {
   KeyAgreementKey,
   KeystoreAgent
 } from '../../src/index.js'
-import type {
-  CapabilityAgent,
-  KeyDescription,
-  KmsClient
-} from '../../src/index.js'
+import type { CapabilityAgent } from '@interop/capability-agent'
+import type { KeyDescription, KmsClient } from '../../src/index.js'
 import { invocationSigner, keyId, keystoreId } from './fixtures.js'
 
 function createAgent({ keyDescription }: { keyDescription: KeyDescription }) {

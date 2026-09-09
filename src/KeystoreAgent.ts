@@ -1,9 +1,9 @@
 /*!
  * Copyright (c) 2019-2026 Digital Bazaar, Inc. All rights reserved.
  */
+import type { CapabilityAgent } from '@interop/capability-agent'
 import type { IZcap } from '@interop/data-integrity-core'
 import { AsymmetricKey } from './AsymmetricKey.js'
-import type { CapabilityAgent } from './CapabilityAgent.js'
 import { Hmac } from './Hmac.js'
 import { Kek } from './Kek.js'
 import { KeyAgreementKey } from './KeyAgreementKey.js'
