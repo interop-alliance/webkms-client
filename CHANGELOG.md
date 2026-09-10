@@ -1,5 +1,11 @@
 # webkms-client ChangeLog
 
+## 15.0.1 - TBD
+
+### Changed
+
+- Update to latest ed25519 key dep (`didKeySigner()`).
+
 ## 15.0.0 - 2026-09-09
 
 ### Changed
